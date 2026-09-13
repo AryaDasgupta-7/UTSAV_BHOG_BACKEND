@@ -6,7 +6,7 @@ const express = require('express');
 const { connectDB, ordersCollection, settingsCollection } = require('./db');
 const { sendOrderEmail } = require('./email');
 
-const RATE_PER_PLATE = 800;
+const RATE_PER_PLATE = 500;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
 const SETTINGS_ID = 'main'; // we only ever keep one settings document
 
@@ -19,7 +19,7 @@ function genOrderId() {
   const year = new Date().getFullYear().toString().slice(-2);
   const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
   const time = Date.now().toString().slice(-4);
-  return `DGP${year}-${rand}${time}`;
+  return `UTSAV${year}-${rand}${time}`;
 }
 
 function requireAdmin(req, res, next) {
