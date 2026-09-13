@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Durga Pujo Bhog Booking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --ivory:#FBF3E6; --white:#FFFDF9; --red:#A5303A; --red-dark:#7A2029;
+    --gold:#CE9B3F; --gold-soft:#E9CE9B; --teal:#1F4B3F; --ink:#2A1B14;
+    --ink-soft:#6B5B4E; --line:#DECBAA; --error:#B0392F; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(ellipse at top, rgba(206,155,63,0.16), transparent 55%), var(--ivory);
+    color:var(--ink); font-family:'Work Sans', sans-serif; min-height:100vh;
+    padding:36px 16px 64px; display:flex; flex-direction:column; align-items:center;
+  }
+  .wrap{width:100%; max-width:560px;}
+  .card{
+    background:var(--white); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:0 1px 2px rgba(42,27,20,0.06); overflow:hidden; position:relative;
+  }
+  .motif{ display:block; width:100%; height:auto; }
+  .content{ padding:8px 34px 34px; }
+  header{ text-align:center; padding:6px 0 22px; }
+  header h1{
+    font-family:'Fraunces', serif; font-optical-sizing:auto; font-weight:600;
+    font-size:34px; line-height:1.15; margin:0 0 10px; color:var(--red-dark);
+  }
+  header p{ margin:0; color:var(--ink-soft); font-size:15px; line-height:1.5; max-width:400px; margin-inline:auto; }
+  .divider{ display:flex; align-items:center; gap:10px; margin:26px 0 22px; color:var(--gold); }
+  .divider::before, .divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+  .divider svg{ width:16px; height:16px; flex:none; }
+  label{ display:block; font-size:13.5px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+  .field{ margin-bottom:18px; }
+  input[type=text], input[type=tel], input[type=email]{
+    width:100%; padding:12px 13px; border:1px solid var(--line); border-radius:10px;
+    background:var(--ivory); font-family:'Work Sans', sans-serif; font-size:15px;
+    color:var(--ink); transition:border-color .15s;
+  }
+  input:focus{ outline:none; border-color:var(--red); background:var(--white); }
+  .err{ color:var(--error); font-size:12.5px; margin-top:5px; min-height:15px; }
+  .plate-row{
+    display:flex; align-items:center; justify-content:space-between; background:var(--ivory);
+    border:1px solid var(--line); border-radius:10px; padding:14px 16px;
+  }
+  .plate-row .plabel{ font-size:14px; }
+  .plate-row .plabel b{ display:block; font-size:15px; color:var(--ink); }
+  .plate-row .plabel span{ color:var(--ink-soft); font-size:13px; }
+  .stepper{ display:flex; align-items:center; gap:14px; }
+  .stepper button{
+    width:34px; height:34px; border-radius:50%; border:1px solid var(--red); background:var(--white);
+    color:var(--red); font-size:18px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .stepper button:active{ background:var(--red); color:var(--white); }
+  .stepper .qty{ min-width:26px; text-align:center; font-size:17px; font-weight:600; }
+  .total-row{
+    display:flex; justify-content:space-between; align-items:baseline; padding:18px 2px 4px;
+    border-top:1px dashed var(--line); margin-top:18px;
+  }
+  .total-row .tlabel{ font-size:14px; color:var(--ink-soft); }
+  .total-row .tval{ font-family:'Fraunces', serif; font-weight:600; font-size:26px; color:var(--red-dark); }
+  .cta{
+    width:100%; margin-top:22px; padding:14px; border:none; border-radius:10px; background:var(--red);
+    color:var(--white); font-family:'Work Sans', sans-serif; font-size:15.5px; font-weight:600;
+    cursor:pointer; transition:background .15s; display:block; text-align:center; text-decoration:none;
+  }
+  .cta:hover{ background:var(--red-dark); }
+  .cta.secondary{ background:transparent; color:var(--red); border:1px solid var(--red); }
+  .cta.secondary:hover{ background:rgba(165,48,58,0.06); }
+  .cta[disabled]{ opacity:0.6; cursor:not-allowed; }
+  #confirmView{ text-align:center; }
+  .order-id{
+    font-family:'Fraunces', serif; font-weight:600; font-size:22px; color:var(--teal);
+    letter-spacing:0.5px; background:#EFF5F2; border:1px solid #CFE1D8; border-radius:10px;
+    padding:12px 14px; margin:6px 0 20px;
+  }
+  .summary-box{ text-align:left; background:var(--ivory); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:20px; }
+  .summary-box .srow{ display:flex; justify-content:space-between; font-size:14.5px; padding:5px 0; }
+  .summary-box .srow.total{ border-top:1px dashed var(--line); margin-top:6px; padding-top:10px; font-weight:600; font-size:16px; }
+  .summary-box .srow span:first-child{ color:var(--ink-soft); }
+  #qrBox{ margin:6px auto 18px; display:flex; justify-content:center; }
+  #qrBox canvas, #qrBox img{ border-radius:8px; border:1px solid var(--line); padding:8px; background:var(--white); }
+  .note{
+    font-size:12.5px; color:var(--ink-soft); line-height:1.6; background:#FBF0EC; border:1px solid #EBD3C9;
+    border-radius:10px; padding:12px 14px; margin-bottom:18px; text-align:left;
+  }
+  .hidden{ display:none !important; }
+  .footer-link{ display:block; text-align:center; margin-top:22px; font-size:13px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <svg class="motif" viewBox="0 0 560 34" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="560" height="34" fill="var(--red)"/>
+      <g fill="var(--gold-soft)" opacity="0.9">
+        <path d="M0 34 C 20 10, 40 10, 60 34 C 80 10, 100 10, 120 34 C 140 10, 160 10, 180 34 C 200 10, 220 10, 240 34 C 260 10, 280 10, 300 34 C 320 10, 340 10, 360 34 C 380 10, 400 10, 420 34 C 440 10, 460 10, 480 34 C 500 10, 520 10, 540 34 C 550 20, 555 15, 560 20 L 560 34 L 0 34 Z"/>
+      </g>
+    </svg>
+    <div class="content">
+      <header>
+        <h1>Sharodiya Bhog Prasad</h1>
+        <p>Reserve your plates of maha bhog for Durga Pujo. Fill in your details, choose the number of plates, and pay directly by UPI.</p>
+      </header>
+
+      <div class="divider">
+        <svg viewBox="0 0 24 24" fill="var(--gold)"><path d="M12 2 L14 9 L21 9 L15.5 13.5 L17.5 21 L12 16.8 L6.5 21 L8.5 13.5 L3 9 L10 9 Z"/></svg>
+      </div>
+
+      <div id="formView">
+        <div class="field">
+          <label for="name">Full name</label>
+          <input type="text" id="name" placeholder="e.g. Ananya Sen" autocomplete="name">
+          <div class="err" id="err-name"></div>
+        </div>
+        <div class="field">
+          <label for="phone">Phone number</label>
+          <input type="tel" id="phone" placeholder="10-digit mobile number" autocomplete="tel" maxlength="10">
+          <div class="err" id="err-phone"></div>
+        </div>
+        <div class="field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+          <div class="err" id="err-email"></div>
+        </div>
+
+        <label>Number of bhog plates</label>
+        <div class="plate-row">
+          <div class="plabel"><b>Bhog plate</b><span>₹800 per plate</span></div>
+          <div class="stepper">
+            <button type="button" id="minusBtn" aria-label="Decrease">−</button>
+            <div class="qty" id="qtyDisplay">1</div>
+            <button type="button" id="plusBtn" aria-label="Increase">+</button>
+          </div>
+        </div>
+
+        <div class="total-row">
+          <div class="tlabel">Total amount</div>
+          <div class="tval" id="totalDisplay">₹800</div>
+        </div>
+
+        <button class="cta" id="submitBtn">Reserve plates &amp; pay</button>
+        <div class="err" id="err-submit" style="text-align:center;"></div>
+      </div>
+
+      <div id="confirmView" class="hidden">
+        <header style="padding-bottom:4px;">
+          <h1 style="font-size:24px;">Your order is ready</h1>
+          <p>Complete the UPI payment below to confirm your bhog reservation.</p>
+        </header>
+        <div class="order-id" id="orderIdDisplay">DGP-0000</div>
+
+        <div class="summary-box">
+          <div class="srow"><span>Name</span><span id="sName"></span></div>
+          <div class="srow"><span>Phone</span><span id="sPhone"></span></div>
+          <div class="srow"><span>Email</span><span id="sEmail"></span></div>
+          <div class="srow"><span>Plates</span><span id="sQty"></span></div>
+          <div class="srow"><span>Rate</span><span>₹800 / plate</span></div>
+          <div class="srow total"><span>Total payable</span><span id="sTotal"></span></div>
+        </div>
+
+        <div id="qrBox"></div>
+        <a class="cta" id="upiPayBtn" href="#">Pay ₹<span id="payAmtLabel"></span> via UPI app</a>
+
+        <div class="note">
+          Tap "Pay via UPI app" on your phone to open Google Pay, PhonePe, Paytm or any UPI app with the amount pre-filled — or scan the QR code above from another device. Please keep your Order ID <b id="noteOrderId"></b> as your payment reference.
+        </div>
+
+        <button class="cta secondary" id="newOrderBtn">Place another order</button>
+      </div>
+
+      <a class="footer-link" href="/admin.html">Seller dashboard</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  let qty = 1;
+  const qtyDisplay = document.getElementById('qtyDisplay');
+  const totalDisplay = document.getElementById('totalDisplay');
+  const RATE = 800;
+
+  function renderQty(){
+    qtyDisplay.textContent = qty;
+    totalDisplay.textContent = '₹' + (qty*RATE).toLocaleString('en-IN');
+  }
+  document.getElementById('plusBtn').addEventListener('click', ()=>{ if(qty<200){ qty++; renderQty(); } });
+  document.getElementById('minusBtn').addEventListener('click', ()=>{ if(qty>1){ qty--; renderQty(); } });
+  renderQty();
+
+  function validate(){
+    let ok = true;
+    const name = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    document.getElementById('err-name').textContent = '';
+    document.getElementById('err-phone').textContent = '';
+    document.getElementById('err-email').textContent = '';
+    if(!name){ document.getElementById('err-name').textContent = 'Please enter your name.'; ok=false; }
+    if(!/^[6-9]\d{9}$/.test(phone)){ document.getElementById('err-phone').textContent = 'Enter a valid 10-digit Indian mobile number.'; ok=false; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ document.getElementById('err-email').textContent = 'Enter a valid email address.'; ok=false; }
+    return ok ? {name, phone, email} : null;
+  }
+
+  document.getElementById('submitBtn').addEventListener('click', async ()=>{
+    const data = validate();
+    if(!data) return;
+    const submitBtn = document.getElementById('submitBtn');
+    const errSubmit = document.getElementById('err-submit');
+    errSubmit.textContent = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Placing order…';
+
+    try{
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: data.name, phone: data.phone, email: data.email, qty })
+      });
+      const result = await res.json();
+      if(!res.ok){
+        errSubmit.textContent = result.error || 'Something went wrong. Please try again.';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Reserve plates & pay';
+        return;
+      }
+
+      document.getElementById('orderIdDisplay').textContent = result.orderId;
+      document.getElementById('noteOrderId').textContent = result.orderId;
+      document.getElementById('sName').textContent = data.name;
+      document.getElementById('sPhone').textContent = data.phone;
+      document.getElementById('sEmail').textContent = data.email;
+      document.getElementById('sQty').textContent = qty;
+      document.getElementById('sTotal').textContent = '₹' + result.amount.toLocaleString('en-IN');
+      document.getElementById('payAmtLabel').textContent = result.amount.toLocaleString('en-IN');
+
+      const qrBox = document.getElementById('qrBox');
+      qrBox.innerHTML = '';
+      const upiBtn = document.getElementById('upiPayBtn');
+
+      if(result.upiId){
+        const upiUri = `upi://pay?pa=${encodeURIComponent(result.upiId)}&pn=${encodeURIComponent(result.payeeName)}&am=${result.amount}&cu=INR&tn=${encodeURIComponent('Bhog order '+result.orderId)}`;
+        upiBtn.href = upiUri;
+        upiBtn.classList.remove('hidden');
+        try{ new QRCode(qrBox, { text: upiUri, width:160, height:160, colorDark:'#2A1B14', colorLight:'#FFFDF9' }); }catch(e){}
+      } else {
+        upiBtn.classList.add('hidden');
+        qrBox.innerHTML = '<div class="note">The seller has not set up a UPI ID yet. Please contact them directly to complete payment for this order.</div>';
+      }
+
+      document.getElementById('formView').classList.add('hidden');
+      document.getElementById('confirmView').classList.remove('hidden');
+      window.scrollTo({top:0, behavior:'smooth'});
+    }catch(e){
+      errSubmit.textContent = 'Could not reach the server. Please check your connection and try again.';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Reserve plates & pay';
+    }
+  });
+
+  document.getElementById('newOrderBtn').addEventListener('click', ()=>{
+    document.getElementById('name').value = '';
+    document.getElementById('phone').value = '';
+    document.getElementById('email').value = '';
+    qty = 1; renderQty();
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Reserve plates & pay';
+    document.getElementById('confirmView').classList.add('hidden');
+    document.getElementById('formView').classList.remove('hidden');
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+})();
+</script>
+</body>
+</html>
