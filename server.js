@@ -2,21 +2,13 @@ require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
-const low = require('lowdb');
-const FileSync = require('lowdb/adapters/FileSync');
 
+const { connectDB, ordersCollection, settingsCollection } = require('./db');
 const { sendOrderEmail } = require('./email');
 
 const RATE_PER_PLATE = 800;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
-
-// ---------- storage ----------
-const adapter = new FileSync(path.join(__dirname, 'db.json'));
-const db = low(adapter);
-db.defaults({
-  orders: [],
-  settings: { upiId: '', payeeName: 'Durga Puja Committee' }
-}).write();
+const SETTINGS_ID = 'main'; // we only ever keep one settings document
 
 // ---------- app ----------
 const app = express();
@@ -36,6 +28,11 @@ function requireAdmin(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized. Check your admin API key.' });
   }
   next();
+}
+
+async function getSettings() {
+  const existing = await settingsCollection().findOne({ _id: SETTINGS_ID });
+  return existing || { _id: SETTINGS_ID, upiId: '', payeeName: 'Durga Puja Committee' };
 }
 
 // ---------- public endpoints ----------
@@ -72,12 +69,17 @@ app.post('/api/orders', async (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  db.get('orders').push(order).write();
+  try {
+    await ordersCollection().insertOne(order);
+  } catch (e) {
+    console.error('Failed to save order:', e.message);
+    return res.status(500).json({ error: 'Could not save your order right now. Please try again.' });
+  }
 
   // Best-effort email notification to the seller. Never blocks the order.
   sendOrderEmail(order).catch(() => {});
 
-  const settings = db.get('settings').value();
+  const settings = await getSettings();
   res.status(201).json({
     orderId,
     amount,
@@ -87,19 +89,20 @@ app.post('/api/orders', async (req, res) => {
 });
 
 // Public UPI settings, used by the storefront to build the payment link/QR
-app.get('/api/settings', (req, res) => {
-  res.json(db.get('settings').value());
+app.get('/api/settings', async (req, res) => {
+  const settings = await getSettings();
+  res.json({ upiId: settings.upiId, payeeName: settings.payeeName });
 });
 
 // ---------- admin endpoints (require x-api-key header) ----------
 
-app.get('/api/admin/orders', requireAdmin, (req, res) => {
-  const orders = db.get('orders').value().slice().reverse();
+app.get('/api/admin/orders', requireAdmin, async (req, res) => {
+  const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
   res.json({ orders });
 });
 
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  const orders = db.get('orders').value();
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+  const orders = await ordersCollection().find({}).toArray();
   const totalOrders = orders.length;
   const totalPlates = orders.reduce((sum, o) => sum + o.qty, 0);
   const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
@@ -107,28 +110,36 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
   res.json({ totalOrders, totalPlates, totalAmount, paidAmount });
 });
 
-app.post('/api/admin/settings', requireAdmin, (req, res) => {
+app.post('/api/admin/settings', requireAdmin, async (req, res) => {
   const { upiId, payeeName } = req.body || {};
-  db.set('settings.upiId', String(upiId || '').trim()).write();
-  db.set('settings.payeeName', String(payeeName || 'Durga Puja Committee').trim()).write();
+  await settingsCollection().updateOne(
+    { _id: SETTINGS_ID },
+    {
+      $set: {
+        upiId: String(upiId || '').trim(),
+        payeeName: String(payeeName || 'Durga Puja Committee').trim()
+      }
+    },
+    { upsert: true }
+  );
   res.json({ ok: true });
 });
 
-app.post('/api/admin/orders/:orderId/status', requireAdmin, (req, res) => {
+app.post('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => {
   const { orderId } = req.params;
   const { status } = req.body || {};
   if (!['pending', 'paid'].includes(status)) {
     return res.status(400).json({ error: 'Status must be "pending" or "paid".' });
   }
-  const existing = db.get('orders').find({ orderId }).value();
-  if (!existing) return res.status(404).json({ error: 'Order not found.' });
-
-  db.get('orders').find({ orderId }).assign({ status }).write();
+  const result = await ordersCollection().updateOne({ orderId }, { $set: { status } });
+  if (result.matchedCount === 0) {
+    return res.status(404).json({ error: 'Order not found.' });
+  }
   res.json({ ok: true });
 });
 
-app.get('/api/admin/orders/export', requireAdmin, (req, res) => {
-  const orders = db.get('orders').value();
+app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
+  const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
   const header = ['Order ID', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'Created At'];
   const rows = orders.map(o => [o.orderId, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.createdAt]);
   const csv = [header, ...rows]
@@ -141,6 +152,16 @@ app.get('/api/admin/orders/export', requireAdmin, (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Bhog backend running on http://localhost:${PORT}`);
-});
+
+// Connect to MongoDB Atlas first, then start accepting requests.
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Bhog backend running on http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Could not connect to MongoDB Atlas. Server not started.');
+    console.error(err.message);
+    process.exit(1);
+  });
