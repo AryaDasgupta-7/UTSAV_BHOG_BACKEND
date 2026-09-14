@@ -80,6 +80,7 @@
   .day-checkbox svg{ width:12px; height:12px; fill:none; stroke:var(--white); stroke-width:3; opacity:0; }
   .day-card.active .day-checkbox svg{ opacity:1; }
   .day-name{ font-size:15px; font-weight:600; color:var(--ink); }
+  .day-date{ font-size:11.5px; color:var(--gold); font-weight:600; margin:1px 0 2px; }
   .day-rate{ font-size:12.5px; color:var(--ink-soft); }
   .day-body{
     display:none; padding:0 16px 14px; align-items:center; justify-content:space-between;
@@ -266,7 +267,14 @@
 <script>
 (function(){
   const RATE = 500;
-  const DAYS = ['Shoshti', 'Saptami', 'Ashtami', 'Navami'];
+  const DAYS = ['Shoshti', 'Saptami (Adhik Puja)', 'Saptami', 'Ashtami', 'Navami'];
+  const DAY_INFO = {
+    'Shoshti': { date: 'October 16 (Friday)', desc: 'Maha Shashthi' },
+    'Saptami (Adhik Saptami Pujo)': { date: 'October 17 (Saturday)', desc: 'Adhik Saptami' },
+    'Saptami': { date: 'October 18 (Sunday)', desc: 'Maha Saptami' },
+    'Ashtami': { date: 'October 19 (Monday)', desc: 'Maha Ashtami' },
+    'Navami': { date: 'October 20 (Tuesday)', desc: 'Maha Navami' }
+  };
   const dayState = {}; // { Shoshti: { active: bool, qty: number }, ... }
   DAYS.forEach(d => dayState[d] = { active: false, qty: 1 });
   let lunchType = null;
@@ -288,6 +296,7 @@
             <div class="day-checkbox"><svg viewBox="0 0 16 16"><polyline points="2,8 6,12 14,3"></polyline></svg></div>
             <div>
               <div class="day-name">${day}</div>
+              <div class="day-date">${DAY_INFO[day].date} — ${DAY_INFO[day].desc}</div>
               <div class="day-rate">₹${RATE} per plate</div>
             </div>
           </div>
@@ -401,7 +410,7 @@
       const breakdown = document.getElementById('dayBreakdown');
       breakdown.innerHTML = result.orders.map(o => `
         <div class="drow">
-          <div class="dleft"><b>${o.day}</b><span>${o.orderId}</span></div>
+          <div class="dleft"><b>${o.day}</b><span>${DAY_INFO[o.day].date} · ${o.orderId}</span></div>
           <div class="dright">${o.qty} plate(s)<br>₹${o.amount.toLocaleString('en-IN')}</div>
         </div>
       `).join('');
