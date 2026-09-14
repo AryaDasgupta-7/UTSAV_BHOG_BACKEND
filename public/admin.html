@@ -106,7 +106,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Order ID</th><th>Booking ID</th><th>Day</th><th>Lunch Type</th><th>Name</th><th>Phone</th><th class="num">Plates</th><th class="num">Amount</th><th>Status</th><th>Placed</th><th>Actions</th></tr>
+            <tr><th>Order ID</th><th>Booking ID</th><th>Day</th><th>Lunch Type</th><th>Name</th><th>Phone</th><th class="num">Plates</th><th class="num">Amount</th><th>Status</th><th>UTR</th><th>Placed</th><th>Actions</th></tr>
           </thead>
           <tbody id="ordersBody"></tbody>
         </table>
@@ -200,13 +200,13 @@
     const body = document.getElementById('ordersBody');
     const errEl = document.getElementById('ordersErr');
     errEl.textContent = '';
-    body.innerHTML = '<tr><td colspan="11">Loading…</td></tr>';
+    body.innerHTML = '<tr><td colspan="12">Loading…</td></tr>';
     try{
       const res = await fetch('/api/admin/orders', { headers: authHeaders() });
       const data = await res.json();
       const orders = data.orders || [];
       if(orders.length === 0){
-        body.innerHTML = '<tr><td colspan="11">No orders yet.</td></tr>';
+        body.innerHTML = '<tr><td colspan="12">No orders yet.</td></tr>';
         return;
       }
       body.innerHTML = '';
@@ -225,6 +225,7 @@
           <td class="num">${o.qty}</td>
           <td class="num">₹${o.amount.toLocaleString('en-IN')}</td>
           <td><span class="status-pill ${pillClass}">${o.status}</span></td>
+          <td>${escapeHtml(o.utr || '—')}</td>
           <td>${placed}</td>
         `;
         const statusTd = document.createElement('td');
@@ -238,7 +239,7 @@
       }
     }catch(e){
       errEl.textContent = 'Could not load orders.';
-      body.innerHTML = '<tr><td colspan="11">Could not load orders.</td></tr>';
+      body.innerHTML = '<tr><td colspan="12">Could not load orders.</td></tr>';
     }
   }
 
