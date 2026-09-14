@@ -14,6 +14,7 @@ const SETTINGS_ID = 'main'; // we only ever keep one settings document
 // that day's unique order ID (e.g. UTSAV26-SAS-XXXXX for Shoshti).
 const DAY_CODES = {
   Shoshti: 'SAS',
+  'Saptami (Adhik Puja)': 'SAA',
   Saptami: 'SAP',
   Ashtami: 'ASH',
   Navami: 'NAV'
