@@ -149,6 +149,13 @@
     font-size:12px; color:var(--ink-soft); line-height:1.6; text-align:center; margin-bottom:18px;
   }
   .contact-note b{ color:var(--ink); font-weight:600; }
+  .utr-box{
+    text-align:left; background:var(--ivory); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; margin-bottom:16px;
+  }
+  .utr-box label{ margin-bottom:4px; }
+  .utr-hint{ font-size:12px; color:var(--ink-soft); margin:0 0 10px; line-height:1.5; }
+  .utr-success{ color:var(--teal); font-size:13px; font-weight:600; margin-top:8px; }
   .hidden{ display:none !important; }
 </style>
 </head>
@@ -237,6 +244,15 @@
           Tap "Pay via UPI app" on your phone to open Google Pay, PhonePe, Paytm or any UPI app with the amount pre-filled — or scan the QR code above from another device. Please keep your Booking ID <b id="noteBookingId"></b> as your payment reference.
         </div>
 
+        <div class="utr-box" id="utrBox">
+          <label for="utrInput">After paying, enter your UPI reference number (UTR)</label>
+          <p class="utr-hint">This helps us confirm your payment faster. You'll find it in your UPI app's transaction history, usually a 12-digit number.</p>
+          <input type="text" id="utrInput" placeholder="e.g. 123456789012" maxlength="30">
+          <button class="cta secondary" id="utrSubmitBtn" style="margin-top:10px;">Submit reference number</button>
+          <div class="err" id="err-utr"></div>
+          <div class="utr-success hidden" id="utrSuccess">✓ Reference number submitted. Thank you!</div>
+        </div>
+
         <p class="contact-note">
           For queries contact <b>Mr. Asesh Kumar Dasgupta</b> (995894088) or <b>Mr. Dipankar Ghosh</b> (#no. to be added)
         </p>
@@ -254,6 +270,7 @@
   const dayState = {}; // { Shoshti: { active: bool, qty: number }, ... }
   DAYS.forEach(d => dayState[d] = { active: false, qty: 1 });
   let lunchType = null;
+  let currentBookingId = null;
 
   const daysContainer = document.getElementById('daysContainer');
   const totalDisplay = document.getElementById('totalDisplay');
@@ -372,6 +389,7 @@
       }
 
       document.getElementById('bookingIdDisplay').textContent = result.bookingId;
+      currentBookingId = result.bookingId;
       document.getElementById('noteBookingId').textContent = result.bookingId;
       document.getElementById('sName').textContent = data.name;
       document.getElementById('sPhone').textContent = data.phone;
@@ -412,12 +430,61 @@
     }
   });
 
+  document.getElementById('utrSubmitBtn').addEventListener('click', async ()=>{
+    const utrInput = document.getElementById('utrInput');
+    const errUtr = document.getElementById('err-utr');
+    const utrSuccess = document.getElementById('utrSuccess');
+    const btn = document.getElementById('utrSubmitBtn');
+    const utr = utrInput.value.trim();
+
+    errUtr.textContent = '';
+    if(!/^[A-Za-z0-9]{6,30}$/.test(utr)){
+      errUtr.textContent = 'Enter a valid UPI reference number (usually 12 digits from your payment app).';
+      return;
+    }
+    if(!currentBookingId) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try{
+      const res = await fetch(`/api/orders/${encodeURIComponent(currentBookingId)}/utr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ utr })
+      });
+      const result = await res.json();
+      if(!res.ok){
+        errUtr.textContent = result.error || 'Could not submit right now. Please try again.';
+        btn.disabled = false;
+        btn.textContent = 'Submit reference number';
+        return;
+      }
+      utrSuccess.classList.remove('hidden');
+      utrInput.disabled = true;
+      btn.disabled = true;
+      btn.textContent = 'Submitted';
+    }catch(e){
+      errUtr.textContent = 'Could not reach the server. Please check your connection and try again.';
+      btn.disabled = false;
+      btn.textContent = 'Submit reference number';
+    }
+  });
+
   document.getElementById('newOrderBtn').addEventListener('click', ()=>{
     document.getElementById('name').value = '';
     document.getElementById('phone').value = '';
     document.getElementById('email').value = '';
     DAYS.forEach(d => { dayState[d] = { active: false, qty: 1 }; });
     lunchType = null;
+    currentBookingId = null;
+    const utrInput = document.getElementById('utrInput');
+    utrInput.value = '';
+    utrInput.disabled = false;
+    document.getElementById('err-utr').textContent = '';
+    document.getElementById('utrSuccess').classList.add('hidden');
+    const utrBtn = document.getElementById('utrSubmitBtn');
+    utrBtn.disabled = false;
+    utrBtn.textContent = 'Submit reference number';
     document.querySelectorAll('.lunch-type-option').forEach(o => o.classList.remove('selected'));
     renderDays();
     renderTotal();
