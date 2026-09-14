@@ -10,16 +10,27 @@ const RATE_PER_PLATE = 500;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
 const SETTINGS_ID = 'main'; // we only ever keep one settings document
 
+// The four days a customer can book bhog for, and a short code used inside
+// that day's unique order ID (e.g. UTSAV26-SAS-XXXXX for Shoshti).
+const DAY_CODES = {
+  Shoshti: 'SAS',
+  Saptami: 'SAP',
+  Ashtami: 'ASH',
+  Navami: 'NAV'
+};
+const VALID_DAYS = Object.keys(DAY_CODES);
+const VALID_LUNCH_TYPES = ['Packing', 'Community Lunch (Dine-In)'];
+
 // ---------- app ----------
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-function genOrderId() {
+function genId(middle) {
   const year = new Date().getFullYear().toString().slice(-2);
-  const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
   const time = Date.now().toString().slice(-4);
-  return `UTSAV${year}-${rand}${time}`;
+  return `UTSAV${year}-${middle}-${rand}${time}`;
 }
 
 function requireAdmin(req, res, next) {
@@ -37,9 +48,9 @@ async function getSettings() {
 
 // ---------- public endpoints ----------
 
-// Create a new order
+// Create a new booking, made up of one order per selected day.
 app.post('/api/orders', async (req, res) => {
-  const { name, phone, email, qty } = req.body || {};
+  const { name, phone, email, lunchType, days } = req.body || {};
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Name is required.' });
@@ -50,44 +61,85 @@ app.post('/api/orders', async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim())) {
     return res.status(400).json({ error: 'Enter a valid email address.' });
   }
-  const qtyNum = parseInt(qty, 10);
-  if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 200) {
-    return res.status(400).json({ error: 'Enter a valid number of plates (1-200).' });
+  if (!VALID_LUNCH_TYPES.includes(lunchType)) {
+    return res.status(400).json({ error: 'Please choose a lunch type.' });
+  }
+  if (!Array.isArray(days) || days.length === 0) {
+    return res.status(400).json({ error: 'Please select at least one day.' });
   }
 
-  const orderId = genOrderId();
-  const amount = qtyNum * RATE_PER_PLATE;
+  const seenDays = new Set();
+  const cleanDays = [];
+  for (const entry of days) {
+    const day = entry && entry.day;
+    const qtyNum = parseInt(entry && entry.qty, 10);
+    if (!VALID_DAYS.includes(day)) {
+      return res.status(400).json({ error: `"${day}" is not a valid day.` });
+    }
+    if (seenDays.has(day)) {
+      return res.status(400).json({ error: `"${day}" was selected more than once.` });
+    }
+    if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 200) {
+      return res.status(400).json({ error: `Enter a valid number of plates for ${day} (1-200).` });
+    }
+    seenDays.add(day);
+    cleanDays.push({ day, qty: qtyNum });
+  }
 
-  const order = {
-    orderId,
-    name: name.trim(),
-    phone: String(phone).trim(),
-    email: String(email).trim(),
-    qty: qtyNum,
-    amount,
+  const bookingId = genId('BK');
+  const createdAt = new Date().toISOString();
+  const cleanName = name.trim();
+  const cleanPhone = String(phone).trim();
+  const cleanEmail = String(email).trim();
+
+  const dayOrders = cleanDays.map(({ day, qty }) => ({
+    orderId: genId(DAY_CODES[day]),
+    bookingId,
+    day,
+    lunchType,
+    name: cleanName,
+    phone: cleanPhone,
+    email: cleanEmail,
+    qty,
+    amount: qty * RATE_PER_PLATE,
     status: 'pending', // pending | paid
-    createdAt: new Date().toISOString()
-  };
+    createdAt
+  }));
+
+  const totalAmount = dayOrders.reduce((sum, o) => sum + o.amount, 0);
 
   try {
-    await ordersCollection().insertOne(order);
+    await ordersCollection().insertMany(dayOrders);
   } catch (e) {
-    console.error('Failed to save order:', e.message);
+    console.error('Failed to save booking:', e.message);
     return res.status(500).json({ error: 'Could not save your order right now. Please try again.' });
   }
 
-  // Best-effort email notifications. Never blocks the order response.
   const settings = await getSettings();
+  const booking = {
+    bookingId,
+    name: cleanName,
+    phone: cleanPhone,
+    email: cleanEmail,
+    lunchType,
+    totalAmount,
+    dayOrders,
+    createdAt
+  };
+
   const upiLink = settings.upiId
-    ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Bhog order ' + orderId)}`
+    ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent('Bhog booking ' + bookingId)}`
     : null;
 
-  sendOrderEmail(order).catch(err => console.error('Seller email failed:', err.message));
-  sendCustomerReceiptEmail(order, upiLink).catch(err => console.error('Customer email failed:', err.message));
+  // Best-effort email notifications. Never blocks the order response.
+  sendOrderEmail(booking).catch(err => console.error('Seller email failed:', err.message));
+  sendCustomerReceiptEmail(booking, upiLink).catch(err => console.error('Customer email failed:', err.message));
 
   res.status(201).json({
-    orderId,
-    amount,
+    bookingId,
+    totalAmount,
+    lunchType,
+    orders: dayOrders.map(o => ({ orderId: o.orderId, day: o.day, qty: o.qty, amount: o.amount })),
     upiId: settings.upiId,
     payeeName: settings.payeeName
   });
@@ -109,10 +161,11 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).toArray();
   const totalOrders = orders.length;
+  const totalBookings = new Set(orders.map(o => o.bookingId)).size;
   const totalPlates = orders.reduce((sum, o) => sum + o.qty, 0);
   const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
   const paidAmount = orders.filter(o => o.status === 'paid').reduce((sum, o) => sum + o.amount, 0);
-  res.json({ totalOrders, totalPlates, totalAmount, paidAmount });
+  res.json({ totalOrders, totalBookings, totalPlates, totalAmount, paidAmount });
 });
 
 app.post('/api/admin/settings', requireAdmin, async (req, res) => {
@@ -145,10 +198,12 @@ app.post('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => 
 
 app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
-  const header = ['Order ID', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'Created At'];
-  const rows = orders.map(o => [o.orderId, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.createdAt]);
+  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'Created At'];
+  const rows = orders.map(o => [
+    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.createdAt
+  ]);
   const csv = [header, ...rows]
-    .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    .map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(','))
     .join('\n');
 
   res.setHeader('Content-Type', 'text/csv');
