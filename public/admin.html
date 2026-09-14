@@ -39,7 +39,7 @@
   button.ghost{ background:transparent; color:var(--red); border:1px solid var(--red); }
   .err{ color:var(--error); font-size:13px; margin-top:8px; }
   .ok{ color:var(--teal); font-size:13px; margin-top:8px; }
-  .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:6px; }
+  .stat-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:6px; }
   .stat{ background:var(--ivory); border:1px solid var(--line); border-radius:10px; padding:14px; text-align:center; }
   .stat b{ display:block; font-family:'Fraunces', serif; font-size:22px; color:var(--teal); }
   .stat span{ font-size:11.5px; color:var(--ink-soft); }
@@ -87,7 +87,8 @@
 
     <div class="card">
       <div class="stat-grid">
-        <div class="stat"><b id="statOrders">0</b><span>Total orders</span></div>
+        <div class="stat"><b id="statBookings">0</b><span>Total bookings</span></div>
+        <div class="stat"><b id="statOrders">0</b><span>Day-orders</span></div>
         <div class="stat"><b id="statPlates">0</b><span>Total plates</span></div>
         <div class="stat"><b id="statAmount">₹0</b><span>Amount expected</span></div>
         <div class="stat"><b id="statPaid">₹0</b><span>Amount confirmed paid</span></div>
@@ -105,7 +106,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Order ID</th><th>Name</th><th>Phone</th><th>Email</th><th class="num">Plates</th><th class="num">Amount</th><th>Status</th><th>Placed</th></tr>
+            <tr><th>Order ID</th><th>Booking ID</th><th>Day</th><th>Lunch Type</th><th>Name</th><th>Phone</th><th class="num">Plates</th><th class="num">Amount</th><th>Status</th><th>Placed</th><th>Actions</th></tr>
           </thead>
           <tbody id="ordersBody"></tbody>
         </table>
@@ -183,6 +184,7 @@
     try{
       const res = await fetch('/api/admin/stats', { headers: authHeaders() });
       const s = await res.json();
+      document.getElementById('statBookings').textContent = s.totalBookings;
       document.getElementById('statOrders').textContent = s.totalOrders;
       document.getElementById('statPlates').textContent = s.totalPlates;
       document.getElementById('statAmount').textContent = '₹' + s.totalAmount.toLocaleString('en-IN');
@@ -198,13 +200,13 @@
     const body = document.getElementById('ordersBody');
     const errEl = document.getElementById('ordersErr');
     errEl.textContent = '';
-    body.innerHTML = '<tr><td colspan="8">Loading…</td></tr>';
+    body.innerHTML = '<tr><td colspan="11">Loading…</td></tr>';
     try{
       const res = await fetch('/api/admin/orders', { headers: authHeaders() });
       const data = await res.json();
       const orders = data.orders || [];
       if(orders.length === 0){
-        body.innerHTML = '<tr><td colspan="8">No orders yet.</td></tr>';
+        body.innerHTML = '<tr><td colspan="11">No orders yet.</td></tr>';
         return;
       }
       body.innerHTML = '';
@@ -215,9 +217,11 @@
         const toggleLabel = o.status === 'paid' ? 'Mark pending' : 'Mark paid';
         tr.innerHTML = `
           <td>${escapeHtml(o.orderId)}</td>
+          <td>${escapeHtml(o.bookingId || '')}</td>
+          <td>${escapeHtml(o.day || '')}</td>
+          <td>${escapeHtml(o.lunchType || '')}</td>
           <td>${escapeHtml(o.name)}</td>
           <td>${escapeHtml(o.phone)}</td>
-          <td>${escapeHtml(o.email)}</td>
           <td class="num">${o.qty}</td>
           <td class="num">₹${o.amount.toLocaleString('en-IN')}</td>
           <td><span class="status-pill ${pillClass}">${o.status}</span></td>
@@ -234,7 +238,7 @@
       }
     }catch(e){
       errEl.textContent = 'Could not load orders.';
-      body.innerHTML = '<tr><td colspan="8">Could not load orders.</td></tr>';
+      body.innerHTML = '<tr><td colspan="11">Could not load orders.</td></tr>';
     }
   }
 
