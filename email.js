@@ -43,26 +43,50 @@ async function sendViaBrevo({ to, toName, subject, text, html }) {
   }
 }
 
+// Plain-text day-by-day breakdown, shared by both emails.
+function dayLines(booking) {
+  return booking.dayOrders
+    .map(o => `  - ${o.day}: ${o.qty} plate(s), ₹${o.amount}  (Order ID: ${o.orderId})`)
+    .join('\n');
+}
+
+// HTML day-by-day breakdown, shared by both emails.
+function dayRowsHtml(booking) {
+  return booking.dayOrders
+    .map(o => `
+      <tr>
+        <td style="padding:8px 12px; color:#6B5B4E;">${o.day}</td>
+        <td style="padding:8px 12px;">${o.qty}</td>
+        <td style="padding:8px 12px;">₹${o.amount}</td>
+        <td style="padding:8px 12px; font-size:12px; color:#6B5B4E;">${o.orderId}</td>
+      </tr>`)
+    .join('');
+}
+
 // ---------- Notification to the seller ----------
 
-async function sendOrderEmail(order) {
+async function sendOrderEmail(booking) {
   const sellerEmail = process.env.SELLER_EMAIL;
   if (!sellerEmail) return;
 
   await sendViaBrevo({
     to: sellerEmail,
     toName: 'Seller',
-    subject: `New bhog order ${order.orderId} — ${order.qty} plate(s), ₹${order.amount}`,
+    subject: `New bhog booking ${booking.bookingId} — ₹${booking.totalAmount}`,
     text:
-`New Durga Pujo bhog order received.
+`New Durga Pujo bhog booking received.
 
-Order ID : ${order.orderId}
-Name     : ${order.name}
-Phone    : ${order.phone}
-Email    : ${order.email}
-Plates   : ${order.qty}
-Amount   : Rs. ${order.amount}
-Placed at: ${order.createdAt}
+Booking ID : ${booking.bookingId}
+Name       : ${booking.name}
+Phone      : ${booking.phone}
+Email      : ${booking.email}
+Lunch type : ${booking.lunchType}
+
+Days booked:
+${dayLines(booking)}
+
+Total amount: Rs. ${booking.totalAmount}
+Placed at   : ${booking.createdAt}
 
 View all orders in your admin dashboard (/admin.html).`
   });
@@ -70,53 +94,68 @@ View all orders in your admin dashboard (/admin.html).`
 
 // ---------- Receipt to the customer ----------
 
-async function sendCustomerReceiptEmail(order, upiLink) {
-  if (!order.email) return;
+async function sendCustomerReceiptEmail(booking, upiLink) {
+  if (!booking.email) return;
 
   const payLine = upiLink
     ? `Pay now via UPI: ${upiLink}\n(Or reopen your confirmation page and tap "Pay via UPI app" / scan the QR code.)`
     : `Please pay via UPI using the link/QR shown on your confirmation page.`;
 
   const text =
-`Thank you, ${order.name}! Your bhog order is confirmed.
+`Thank you, ${booking.name}! Your bhog booking is confirmed.
 
-Order ID : ${order.orderId}
-Plates   : ${order.qty}
-Amount   : Rs. ${order.amount}
+Booking ID : ${booking.bookingId}
+Lunch type : ${booking.lunchType}
 
-Your bhog lunch will be prepared by 1:30 PM.
+Days booked:
+${dayLines(booking)}
+
+Total amount: Rs. ${booking.totalAmount}
+
+Your bhog lunch will be prepared by 1:30 PM on each booked day.
 
 ${payLine}
 
-Please keep your Order ID as your payment reference.
+Please keep your Booking ID as your payment reference.
 
 For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.
 
 — Utsav Socio-Cultural Trust`;
 
   const html = `
-  <div style="font-family:Arial,sans-serif; max-width:480px; margin:0 auto; color:#2A1B14;">
+  <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#2A1B14;">
     <h2 style="color:#7A2029; margin-bottom:4px;">Utsav Socio-Cultural Trust</h2>
-    <p style="color:#6B5B4E; margin-top:0;">Lunch Bhog Booking — Order Receipt</p>
-    <p>Thank you, <b>${order.name}</b>! Your bhog order is confirmed.</p>
-    <table style="width:100%; border-collapse:collapse; margin:16px 0; background:#FBF3E6; border-radius:8px; overflow:hidden;">
-      <tr><td style="padding:8px 12px; color:#6B5B4E;">Order ID</td><td style="padding:8px 12px; font-weight:bold;">${order.orderId}</td></tr>
-      <tr><td style="padding:8px 12px; color:#6B5B4E;">Plates</td><td style="padding:8px 12px;">${order.qty}</td></tr>
-      <tr><td style="padding:8px 12px; color:#6B5B4E;">Amount</td><td style="padding:8px 12px; font-weight:bold;">₹${order.amount}</td></tr>
+    <p style="color:#6B5B4E; margin-top:0;">Lunch Bhog Booking — Receipt</p>
+    <p>Thank you, <b>${booking.name}</b>! Your bhog booking is confirmed.</p>
+    <table style="width:100%; border-collapse:collapse; margin:12px 0; background:#FBF3E6; border-radius:8px; overflow:hidden;">
+      <tr><td style="padding:8px 12px; color:#6B5B4E;">Booking ID</td><td style="padding:8px 12px; font-weight:bold;">${booking.bookingId}</td></tr>
+      <tr><td style="padding:8px 12px; color:#6B5B4E;">Lunch type</td><td style="padding:8px 12px;">${booking.lunchType}</td></tr>
     </table>
-    <p><b>Your bhog lunch will be prepared by 1:30 PM.</b></p>
+    <table style="width:100%; border-collapse:collapse; margin:12px 0;">
+      <thead>
+        <tr style="background:#EFE3D0;">
+          <th style="padding:8px 12px; text-align:left;">Day</th>
+          <th style="padding:8px 12px; text-align:left;">Plates</th>
+          <th style="padding:8px 12px; text-align:left;">Amount</th>
+          <th style="padding:8px 12px; text-align:left;">Order ID</th>
+        </tr>
+      </thead>
+      <tbody>${dayRowsHtml(booking)}</tbody>
+    </table>
+    <p style="font-size:16px;"><b>Total: ₹${booking.totalAmount}</b></p>
+    <p><b>Your bhog lunch will be prepared by 1:30 PM on each booked day.</b></p>
     ${upiLink
-      ? `<p><a href="${upiLink}" style="display:inline-block; background:#A5303A; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none;">Pay ₹${order.amount} via UPI app</a></p>`
+      ? `<p><a href="${upiLink}" style="display:inline-block; background:#A5303A; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none;">Pay ₹${booking.totalAmount} via UPI app</a></p>`
       : `<p>Please pay via UPI using the link/QR shown on your confirmation page.</p>`
     }
-    <p style="font-size:13px; color:#6B5B4E;">Please keep your Order ID as your payment reference.</p>
+    <p style="font-size:13px; color:#6B5B4E;">Please keep your Booking ID as your payment reference.</p>
     <p style="font-size:12px; color:#6B5B4E;">For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.</p>
   </div>`;
 
   await sendViaBrevo({
-    to: order.email,
-    toName: order.name,
-    subject: `Your bhog order ${order.orderId} is confirmed`,
+    to: booking.email,
+    toName: booking.name,
+    subject: `Your bhog booking ${booking.bookingId} is confirmed`,
     text,
     html
   });
