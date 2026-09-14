@@ -1,31 +1,57 @@
-const nodemailer = require('nodemailer');
+// Uses Brevo's HTTP API (not SMTP) to send email.
+// Render's free tier blocks all outbound SMTP connections (ports 25, 465, 587)
+// as an anti-spam measure, so any nodemailer/SMTP setup will always time out
+// there. Brevo's API sends over plain HTTPS instead, which is never blocked.
 
-// Builds a transporter only if SMTP credentials are present in the
-// environment. If they are not set, email sending is silently skipped so the
-// order flow never breaks just because email isn't configured yet.
-function getTransport() {
-  const { SMTP_HOST, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
-  const port = Number(process.env.SMTP_PORT) || 465;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port,
-    secure: port === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
+function getSender() {
+  const email = process.env.BREVO_SENDER_EMAIL;
+  if (!email) return null;
+  return {
+    name: process.env.BREVO_SENDER_NAME || 'Utsav Socio-Cultural Trust',
+    email
+  };
+}
+
+// Sends one email via Brevo. Silently does nothing if not configured yet,
+// so the order flow never breaks just because email isn't set up.
+async function sendViaBrevo({ to, toName, subject, text, html }) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const sender = getSender();
+  if (!apiKey || !sender) return;
+
+  const res = await fetch(BREVO_API_URL, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': apiKey,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to, name: toName || to }],
+      subject,
+      textContent: text,
+      ...(html ? { htmlContent: html } : {})
+    })
   });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Brevo API error ${res.status}: ${body}`);
+  }
 }
 
 // ---------- Notification to the seller ----------
 
 async function sendOrderEmail(order) {
-  const transport = getTransport();
   const sellerEmail = process.env.SELLER_EMAIL;
-  if (!transport || !sellerEmail) return;
+  if (!sellerEmail) return;
 
-  await transport.sendMail({
-    from: process.env.FROM_EMAIL || process.env.SMTP_USER,
+  await sendViaBrevo({
     to: sellerEmail,
+    toName: 'Seller',
     subject: `New bhog order ${order.orderId} — ${order.qty} plate(s), ₹${order.amount}`,
     text:
 `New Durga Pujo bhog order received.
@@ -45,8 +71,7 @@ View all orders in your admin dashboard (/admin.html).`
 // ---------- Receipt to the customer ----------
 
 async function sendCustomerReceiptEmail(order, upiLink) {
-  const transport = getTransport();
-  if (!transport || !order.email) return;
+  if (!order.email) return;
 
   const payLine = upiLink
     ? `Pay now via UPI: ${upiLink}\n(Or reopen your confirmation page and tap "Pay via UPI app" / scan the QR code.)`
@@ -88,9 +113,9 @@ For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.
     <p style="font-size:12px; color:#6B5B4E;">For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.</p>
   </div>`;
 
-  await transport.sendMail({
-    from: process.env.FROM_EMAIL || process.env.SMTP_USER,
+  await sendViaBrevo({
     to: order.email,
+    toName: order.name,
     subject: `Your bhog order ${order.orderId} is confirmed`,
     text,
     html
