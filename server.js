@@ -151,6 +151,28 @@ app.get('/api/settings', async (req, res) => {
   res.json({ upiId: settings.upiId, payeeName: settings.payeeName });
 });
 
+// Public: customer submits their UPI reference number (UTR) after paying,
+// so the seller can match it against their bank statement quickly.
+app.post('/api/orders/:bookingId/utr', async (req, res) => {
+  const { bookingId } = req.params;
+  const utr = String((req.body || {}).utr || '').trim();
+
+  if (!/^[A-Za-z0-9]{6,30}$/.test(utr)) {
+    return res.status(400).json({ error: 'Enter a valid UPI reference number (usually 12 digits, shown in your payment app).' });
+  }
+
+  const result = await ordersCollection().updateMany(
+    { bookingId },
+    { $set: { utr, utrSubmittedAt: new Date().toISOString() } }
+  );
+
+  if (result.matchedCount === 0) {
+    return res.status(404).json({ error: 'Booking not found.' });
+  }
+
+  res.json({ ok: true });
+});
+
 // ---------- admin endpoints (require x-api-key header) ----------
 
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
@@ -198,9 +220,9 @@ app.post('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => 
 
 app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
-  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'Created At'];
+  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Created At'];
   const rows = orders.map(o => [
-    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.createdAt
+    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.utr || '', o.createdAt
   ]);
   const csv = [header, ...rows]
     .map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(','))
