@@ -4,7 +4,7 @@ const path = require('path');
 const express = require('express');
 
 const { connectDB, ordersCollection, settingsCollection } = require('./db');
-const { sendOrderEmail } = require('./email');
+const { sendOrderEmail, sendCustomerReceiptEmail } = require('./email');
 
 const RATE_PER_PLATE = 500;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
@@ -76,10 +76,15 @@ app.post('/api/orders', async (req, res) => {
     return res.status(500).json({ error: 'Could not save your order right now. Please try again.' });
   }
 
-  // Best-effort email notification to the seller. Never blocks the order.
-  sendOrderEmail(order).catch(() => {});
-
+  // Best-effort email notifications. Never blocks the order response.
   const settings = await getSettings();
+  const upiLink = settings.upiId
+    ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Bhog order ' + orderId)}`
+    : null;
+
+  sendOrderEmail(order).catch(err => console.error('Seller email failed:', err.message));
+  sendCustomerReceiptEmail(order, upiLink).catch(err => console.error('Customer email failed:', err.message));
+
   res.status(201).json({
     orderId,
     amount,
