@@ -2,9 +2,11 @@ require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
+const multer = require('multer');
 
 const { connectDB, ordersCollection, settingsCollection } = require('./db');
 const { sendOrderEmail, sendCustomerReceiptEmail } = require('./email');
+const { uploadScreenshot } = require('./screenshot');
 
 const RATE_PER_PLATE = 500;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
@@ -174,6 +176,56 @@ app.post('/api/orders/:bookingId/utr', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Public: customer uploads a screenshot of their UPI payment confirmation.
+// The image itself goes to Cloudinary (not MongoDB, which has only 512MB
+// free) — only the resulting URL is saved on the booking's day-orders.
+const screenshotUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
+function handleScreenshotUpload(req, res, next) {
+  screenshotUpload.single('screenshot')(req, res, (err) => {
+    if (err) {
+      const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'That image is too large. Please upload a screenshot under 5MB.'
+        : 'Could not process the uploaded file. Please try a different image.';
+      return res.status(400).json({ error: message });
+    }
+    next();
+  });
+}
+
+app.post('/api/orders/:bookingId/screenshot', handleScreenshotUpload, async (req, res) => {
+  const { bookingId } = req.params;
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'Please attach a screenshot image.' });
+  }
+  if (!req.file.mimetype.startsWith('image/')) {
+    return res.status(400).json({ error: 'Only image files are allowed.' });
+  }
+
+  let url;
+  try {
+    url = await uploadScreenshot(req.file.buffer, bookingId);
+  } catch (e) {
+    console.error('Screenshot upload failed:', e.message);
+    return res.status(500).json({ error: 'Could not upload the screenshot right now. You can still submit your UTR number instead.' });
+  }
+
+  const result = await ordersCollection().updateMany(
+    { bookingId },
+    { $set: { screenshotUrl: url, screenshotSubmittedAt: new Date().toISOString() } }
+  );
+
+  if (result.matchedCount === 0) {
+    return res.status(404).json({ error: 'Booking not found.' });
+  }
+
+  res.json({ ok: true, url });
+});
+
 // ---------- admin endpoints (require x-api-key header) ----------
 
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
@@ -219,11 +271,26 @@ app.post('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => 
   res.json({ ok: true });
 });
 
+// Mark every day-order under one booking as paid/pending in a single action —
+// useful since a booking is usually paid for in one transaction.
+app.post('/api/admin/bookings/:bookingId/status', requireAdmin, async (req, res) => {
+  const { bookingId } = req.params;
+  const { status } = req.body || {};
+  if (!['pending', 'paid'].includes(status)) {
+    return res.status(400).json({ error: 'Status must be "pending" or "paid".' });
+  }
+  const result = await ordersCollection().updateMany({ bookingId }, { $set: { status } });
+  if (result.matchedCount === 0) {
+    return res.status(404).json({ error: 'Booking not found.' });
+  }
+  res.json({ ok: true, updated: result.matchedCount });
+});
+
 app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
-  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Created At'];
+  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Screenshot URL', 'Created At'];
   const rows = orders.map(o => [
-    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.utr || '', o.createdAt
+    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.utr || '', o.screenshotUrl || '', o.createdAt
   ]);
   const csv = [header, ...rows]
     .map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(','))
