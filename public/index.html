@@ -254,6 +254,19 @@
           <div class="utr-success hidden" id="utrSuccess">✓ Reference number submitted. Thank you!</div>
         </div>
 
+        <div class="utr-box" id="screenshotBox">
+          <label for="screenshotInput">Or upload a screenshot of your payment</label>
+          <p class="utr-hint">A photo or screenshot of your UPI payment confirmation also helps us verify your booking faster.</p>
+          <input type="file" id="screenshotInput" accept="image/*">
+          <button class="cta secondary" id="screenshotSubmitBtn" style="margin-top:10px;">Upload screenshot</button>
+          <div class="err" id="err-screenshot"></div>
+          <div class="utr-success hidden" id="screenshotSuccess">✓ Screenshot uploaded. Thank you!</div>
+        </div>
+
+        <p class="contact-note">
+          Please collect your coupon for lunch bhog from the Utsav help desk after your payment is confirmed.
+        </p>
+
         <p class="contact-note">
           For queries contact <b>Mr. Asesh Kumar Dasgupta</b> (995894088) or <b>Mr. Dipankar Ghosh</b> (#no. to be added)
         </p>
@@ -479,6 +492,47 @@
     }
   });
 
+  document.getElementById('screenshotSubmitBtn').addEventListener('click', async ()=>{
+    const fileInput = document.getElementById('screenshotInput');
+    const errShot = document.getElementById('err-screenshot');
+    const shotSuccess = document.getElementById('screenshotSuccess');
+    const btn = document.getElementById('screenshotSubmitBtn');
+
+    errShot.textContent = '';
+    if(!fileInput.files || fileInput.files.length === 0){
+      errShot.textContent = 'Please choose an image first.';
+      return;
+    }
+    if(!currentBookingId) return;
+
+    const formData = new FormData();
+    formData.append('screenshot', fileInput.files[0]);
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    try{
+      const res = await fetch(`/api/orders/${encodeURIComponent(currentBookingId)}/screenshot`, {
+        method: 'POST',
+        body: formData
+      });
+      const result = await res.json();
+      if(!res.ok){
+        errShot.textContent = result.error || 'Could not upload right now. Please try again.';
+        btn.disabled = false;
+        btn.textContent = 'Upload screenshot';
+        return;
+      }
+      shotSuccess.classList.remove('hidden');
+      fileInput.disabled = true;
+      btn.disabled = true;
+      btn.textContent = 'Uploaded';
+    }catch(e){
+      errShot.textContent = 'Could not reach the server. Please check your connection and try again.';
+      btn.disabled = false;
+      btn.textContent = 'Upload screenshot';
+    }
+  });
+
   document.getElementById('newOrderBtn').addEventListener('click', ()=>{
     document.getElementById('name').value = '';
     document.getElementById('phone').value = '';
@@ -494,6 +548,14 @@
     const utrBtn = document.getElementById('utrSubmitBtn');
     utrBtn.disabled = false;
     utrBtn.textContent = 'Submit reference number';
+    const screenshotInput = document.getElementById('screenshotInput');
+    screenshotInput.value = '';
+    screenshotInput.disabled = false;
+    document.getElementById('err-screenshot').textContent = '';
+    document.getElementById('screenshotSuccess').classList.add('hidden');
+    const screenshotBtn = document.getElementById('screenshotSubmitBtn');
+    screenshotBtn.disabled = false;
+    screenshotBtn.textContent = 'Upload screenshot';
     document.querySelectorAll('.lunch-type-option').forEach(o => o.classList.remove('selected'));
     renderDays();
     renderTotal();
