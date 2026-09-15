@@ -17,7 +17,7 @@
     margin:0; background:var(--ivory); color:var(--ink); font-family:'Work Sans', sans-serif;
     padding:32px 16px 64px; display:flex; flex-direction:column; align-items:center;
   }
-  .wrap{ width:100%; max-width:820px; }
+  .wrap{ width:100%; max-width:900px; }
   h1{ font-family:'Fraunces', serif; font-weight:600; color:var(--red-dark); font-size:28px; margin:0 0 4px; }
   p.sub{ color:var(--ink-soft); margin:0 0 24px; font-size:14px; }
   .card{ background:var(--white); border:1px solid var(--line); border-radius:var(--radius); padding:22px 24px; margin-bottom:20px; }
@@ -43,23 +43,38 @@
   .stat{ background:var(--ivory); border:1px solid var(--line); border-radius:10px; padding:14px; text-align:center; }
   .stat b{ display:block; font-family:'Fraunces', serif; font-size:22px; color:var(--teal); }
   .stat span{ font-size:11.5px; color:var(--ink-soft); }
-  table{ width:100%; border-collapse:collapse; font-size:13px; }
-  th, td{ text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); }
-  th{ background:var(--ivory); }
-  td.num{ text-align:right; }
-  .status-pill{ padding:3px 9px; border-radius:20px; font-size:11.5px; font-weight:600; }
+  .status-pill{ padding:3px 9px; border-radius:20px; font-size:11.5px; font-weight:600; display:inline-block; }
   .status-pending{ background:#FBEEE6; color:#A5622F; }
   .status-paid{ background:#E6F1EC; color:var(--teal); }
+  .status-partial{ background:#FDF0D5; color:#8A5A12; }
   .status-btn{ font-size:11.5px; padding:5px 9px; border-radius:7px; }
   .hidden{ display:none !important; }
   .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
-  .table-wrap{ overflow:auto; max-height:420px; border:1px solid var(--line); border-radius:10px; }
+  .orders-wrap{ max-height:640px; overflow:auto; }
+
+  .booking-group{
+    border:1px solid var(--line); border-radius:10px; margin-bottom:14px; overflow:hidden;
+  }
+  .booking-header{
+    background:var(--ivory); padding:14px 16px; display:flex; justify-content:space-between;
+    flex-wrap:wrap; gap:12px; align-items:flex-start; border-bottom:1px solid var(--line);
+  }
+  .booking-header .binfo b{ font-family:'Fraunces', serif; font-size:15px; color:var(--red-dark); }
+  .booking-meta{ font-size:12px; color:var(--ink-soft); margin-top:3px; line-height:1.5; }
+  .booking-total{ text-align:right; }
+  .booking-total .btotal-amt{ font-family:'Fraunces', serif; font-size:19px; color:var(--teal); margin-top:4px; }
+  .day-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .day-table th, .day-table td{ padding:8px 12px; border-bottom:1px solid var(--line); text-align:left; }
+  .day-table th{ background:#FBF6EC; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.3px; }
+  .day-table td.num{ text-align:right; }
+  .day-table tr:last-child td{ border-bottom:none; }
+  .booking-footer{ padding:10px 16px; background:#FBF6EC; display:flex; justify-content:flex-end; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Seller dashboard</h1>
-  <p class="sub">Manage your UPI details and review every Durga Pujo bhog order.</p>
+  <p class="sub">Manage your UPI details and review every Durga Pujo bhog booking.</p>
 
   <div class="card" id="loginCard">
     <label for="apiKeyInput">Admin API key</label>
@@ -97,20 +112,13 @@
 
     <div class="card">
       <div class="toolbar">
-        <h2 style="font-family:'Fraunces',serif; font-size:18px; margin:0; color:var(--red-dark);">Orders</h2>
+        <h2 style="font-family:'Fraunces',serif; font-size:18px; margin:0; color:var(--red-dark);">Bookings</h2>
         <div style="display:flex; gap:10px;">
           <button class="ghost" id="refreshBtn">Refresh</button>
           <button id="exportBtn">Export CSV</button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Order ID</th><th>Booking ID</th><th>Day</th><th>Lunch Type</th><th>Name</th><th>Phone</th><th class="num">Plates</th><th class="num">Amount</th><th>Status</th><th>UTR</th><th>Placed</th><th>Actions</th></tr>
-          </thead>
-          <tbody id="ordersBody"></tbody>
-        </table>
-      </div>
+      <div class="orders-wrap" id="ordersContainer"></div>
       <div class="err" id="ordersErr"></div>
     </div>
   </div>
@@ -196,50 +204,112 @@
     return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   }
 
+  // Groups the flat list of day-orders into one array per bookingId,
+  // preserving the order they arrived in (already newest-first from the API).
+  function groupByBooking(orders){
+    const map = new Map();
+    for(const o of orders){
+      const key = o.bookingId || o.orderId;
+      if(!map.has(key)) map.set(key, []);
+      map.get(key).push(o);
+    }
+    return Array.from(map.values());
+  }
+
+  function renderBookingGroup(group){
+    const first = group[0];
+    const totalAmount = group.reduce((s,o)=>s+o.amount, 0);
+    const totalPlates = group.reduce((s,o)=>s+o.qty, 0);
+    const allPaid = group.every(o => o.status === 'paid');
+    const allPending = group.every(o => o.status === 'pending');
+    const overallLabel = allPaid ? 'All paid' : (allPending ? 'All pending' : 'Partially paid');
+    const overallClass = allPaid ? 'status-paid' : (allPending ? 'status-pending' : 'status-partial');
+    const placed = new Date(first.createdAt).toLocaleString('en-IN');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'booking-group';
+
+    const utrLine = first.utr ? ` · UTR: ${escapeHtml(first.utr)}` : '';
+    const screenshotLine = first.screenshotUrl
+      ? ` · <a href="${first.screenshotUrl}" target="_blank" rel="noopener">View payment screenshot</a>`
+      : '';
+
+    wrap.innerHTML = `
+      <div class="booking-header">
+        <div class="binfo">
+          <b>${escapeHtml(first.bookingId || first.orderId)}</b>
+          <div class="booking-meta">${escapeHtml(first.name)} · ${escapeHtml(first.phone)} · ${escapeHtml(first.email)}</div>
+          <div class="booking-meta">${escapeHtml(first.lunchType || '')} · Placed ${placed}${utrLine}${screenshotLine}</div>
+        </div>
+        <div class="booking-total">
+          <span class="status-pill ${overallClass}">${overallLabel}</span>
+          <div class="btotal-amt">₹${totalAmount.toLocaleString('en-IN')}</div>
+          <div class="booking-meta">${totalPlates} plate(s) across ${group.length} day(s)</div>
+        </div>
+      </div>
+      <table class="day-table">
+        <thead>
+          <tr><th>Day</th><th class="num">Plates</th><th class="num">Amount</th><th>Order ID</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="booking-footer"></div>
+    `;
+
+    const tbody = wrap.querySelector('tbody');
+    for(const o of group){
+      const tr = document.createElement('tr');
+      const pillClass = o.status === 'paid' ? 'status-paid' : 'status-pending';
+      tr.innerHTML = `
+        <td>${escapeHtml(o.day || '')}</td>
+        <td class="num">${o.qty}</td>
+        <td class="num">₹${o.amount.toLocaleString('en-IN')}</td>
+        <td>${escapeHtml(o.orderId)}</td>
+        <td><span class="status-pill ${pillClass}">${o.status}</span></td>
+      `;
+      const actionTd = document.createElement('td');
+      const btn = document.createElement('button');
+      btn.className = 'ghost status-btn';
+      btn.textContent = o.status === 'paid' ? 'Mark pending' : 'Mark paid';
+      btn.addEventListener('click', () => toggleStatus(o.orderId, o.status));
+      actionTd.appendChild(btn);
+      tr.appendChild(actionTd);
+      tbody.appendChild(tr);
+    }
+
+    const footer = wrap.querySelector('.booking-footer');
+    if(first.bookingId){
+      const bulkBtn = document.createElement('button');
+      bulkBtn.className = 'secondary status-btn';
+      bulkBtn.textContent = allPaid ? 'Mark whole booking pending' : 'Mark whole booking paid';
+      bulkBtn.addEventListener('click', () => toggleBookingStatus(first.bookingId, allPaid));
+      footer.appendChild(bulkBtn);
+    }
+
+    return wrap;
+  }
+
   async function loadOrders(){
-    const body = document.getElementById('ordersBody');
+    const container = document.getElementById('ordersContainer');
     const errEl = document.getElementById('ordersErr');
     errEl.textContent = '';
-    body.innerHTML = '<tr><td colspan="12">Loading…</td></tr>';
+    container.innerHTML = '<p style="color:var(--ink-soft); font-size:13px;">Loading…</p>';
     try{
       const res = await fetch('/api/admin/orders', { headers: authHeaders() });
       const data = await res.json();
       const orders = data.orders || [];
       if(orders.length === 0){
-        body.innerHTML = '<tr><td colspan="12">No orders yet.</td></tr>';
+        container.innerHTML = '<p style="color:var(--ink-soft); font-size:13px;">No bookings yet.</p>';
         return;
       }
-      body.innerHTML = '';
-      for(const o of orders){
-        const tr = document.createElement('tr');
-        const placed = new Date(o.createdAt).toLocaleString('en-IN');
-        const pillClass = o.status === 'paid' ? 'status-paid' : 'status-pending';
-        const toggleLabel = o.status === 'paid' ? 'Mark pending' : 'Mark paid';
-        tr.innerHTML = `
-          <td>${escapeHtml(o.orderId)}</td>
-          <td>${escapeHtml(o.bookingId || '')}</td>
-          <td>${escapeHtml(o.day || '')}</td>
-          <td>${escapeHtml(o.lunchType || '')}</td>
-          <td>${escapeHtml(o.name)}</td>
-          <td>${escapeHtml(o.phone)}</td>
-          <td class="num">${o.qty}</td>
-          <td class="num">₹${o.amount.toLocaleString('en-IN')}</td>
-          <td><span class="status-pill ${pillClass}">${o.status}</span></td>
-          <td>${escapeHtml(o.utr || '—')}</td>
-          <td>${placed}</td>
-        `;
-        const statusTd = document.createElement('td');
-        const btn = document.createElement('button');
-        btn.className = 'ghost status-btn';
-        btn.textContent = toggleLabel;
-        btn.addEventListener('click', () => toggleStatus(o.orderId, o.status));
-        statusTd.appendChild(btn);
-        tr.appendChild(statusTd);
-        body.appendChild(tr);
+      const groups = groupByBooking(orders);
+      container.innerHTML = '';
+      for(const group of groups){
+        container.appendChild(renderBookingGroup(group));
       }
     }catch(e){
       errEl.textContent = 'Could not load orders.';
-      body.innerHTML = '<tr><td colspan="12">Could not load orders.</td></tr>';
+      container.innerHTML = '<p style="color:var(--ink-soft); font-size:13px;">Could not load orders.</p>';
     }
   }
 
@@ -247,6 +317,17 @@
     const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
     try{
       await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
+        method:'POST', headers: authHeaders(), body: JSON.stringify({ status: newStatus })
+      });
+      await loadStats();
+      await loadOrders();
+    }catch(e){}
+  }
+
+  async function toggleBookingStatus(bookingId, currentlyAllPaid){
+    const newStatus = currentlyAllPaid ? 'pending' : 'paid';
+    try{
+      await fetch(`/api/admin/bookings/${encodeURIComponent(bookingId)}/status`, {
         method:'POST', headers: authHeaders(), body: JSON.stringify({ status: newStatus })
       });
       await loadStats();
