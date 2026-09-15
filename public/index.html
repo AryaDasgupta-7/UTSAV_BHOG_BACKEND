@@ -53,7 +53,7 @@
   .field{ margin-bottom:18px; }
   input[type=text], input[type=tel], input[type=email]{
     width:100%; padding:12px 13px; border:1px solid var(--line); border-radius:10px;
-    background:var(--ivory); font-family:'Work Sans', sans-serif; font-size:15px;
+    background:var(--ivory); font-family:'Work Sans', sans-serif; font-size:16px;
     color:var(--ink); transition:border-color .15s;
   }
   input:focus{ outline:none; border-color:var(--red); background:var(--white); }
@@ -158,6 +158,21 @@
   .utr-hint{ font-size:12px; color:var(--ink-soft); margin:0 0 10px; line-height:1.5; }
   .utr-success{ color:var(--teal); font-size:13px; font-weight:600; margin-top:8px; }
   .hidden{ display:none !important; }
+
+  @media (max-width: 480px){
+    body{ padding:44px 10px 48px; }
+    .site-logo{ width:64px; height:64px; top:-30px; left:-6px; }
+    .content{ padding:8px 18px 24px; }
+    header{ padding:14px 0 18px; }
+    header h1{ font-size:22px; }
+    .lunch-type-row{ gap:8px; }
+    .lunch-type-option{ padding:10px 8px; font-size:12.5px; }
+    .day-stepper button{ width:36px; height:36px; font-size:18px; }
+    .day-checkbox{ width:22px; height:22px; }
+    .cta{ padding:15px; font-size:15px; }
+    .day-head{ padding:14px 12px; }
+    .day-body{ padding:0 12px 14px; }
+  }
 </style>
 </head>
 <body>
