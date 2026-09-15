@@ -286,6 +286,31 @@ app.post('/api/admin/bookings/:bookingId/status', requireAdmin, async (req, res)
   res.json({ ok: true, updated: result.matchedCount });
 });
 
+// Delete one whole booking (every day-order under it). Requires the admin
+// key like every other admin route — the frontend adds a second confirmation
+// step (re-typing the key) before ever calling this.
+app.delete('/api/admin/bookings/:bookingId', requireAdmin, async (req, res) => {
+  const { bookingId } = req.params;
+  const result = await ordersCollection().deleteMany({ bookingId });
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ error: 'Booking not found.' });
+  }
+  res.json({ ok: true, deletedCount: result.deletedCount });
+});
+
+// Deletes every order/booking permanently. Requires the admin key, PLUS an
+// exact confirmation phrase in the body, on top of the frontend's own
+// re-type-your-key confirmation step — this is deliberately hard to trigger
+// by accident.
+app.delete('/api/admin/orders', requireAdmin, async (req, res) => {
+  const { confirm } = req.body || {};
+  if (confirm !== 'DELETE ALL') {
+    return res.status(400).json({ error: 'Confirmation phrase did not match. Nothing was deleted.' });
+  }
+  const result = await ordersCollection().deleteMany({});
+  res.json({ ok: true, deletedCount: result.deletedCount });
+});
+
 app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
   const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Screenshot URL', 'Created At'];
