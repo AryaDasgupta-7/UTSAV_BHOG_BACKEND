@@ -37,6 +37,10 @@
   button.secondary{ background:var(--teal); }
   button.secondary:hover{ background:#163a30; }
   button.ghost{ background:transparent; color:var(--red); border:1px solid var(--red); }
+  button.danger{ background:var(--error); }
+  button.danger:hover{ background:#8a2b23; }
+  button.ghost-danger{ background:transparent; color:var(--error); border:1px solid var(--error); }
+  button.ghost-danger:hover{ background:rgba(176,57,47,0.08); }
   .err{ color:var(--error); font-size:13px; margin-top:8px; }
   .ok{ color:var(--teal); font-size:13px; margin-top:8px; }
   .stat-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:6px; }
@@ -116,6 +120,7 @@
         <div style="display:flex; gap:10px;">
           <button class="ghost" id="refreshBtn">Refresh</button>
           <button id="exportBtn">Export CSV</button>
+          <button class="danger" id="resetAllBtn">Reset all orders</button>
         </div>
       </div>
       <div class="orders-wrap" id="ordersContainer"></div>
@@ -278,12 +283,19 @@
     }
 
     const footer = wrap.querySelector('.booking-footer');
+    footer.style.gap = '10px';
     if(first.bookingId){
       const bulkBtn = document.createElement('button');
       bulkBtn.className = 'secondary status-btn';
       bulkBtn.textContent = allPaid ? 'Mark whole booking pending' : 'Mark whole booking paid';
       bulkBtn.addEventListener('click', () => toggleBookingStatus(first.bookingId, allPaid));
       footer.appendChild(bulkBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'ghost-danger status-btn';
+      deleteBtn.textContent = 'Delete this booking';
+      deleteBtn.addEventListener('click', () => deleteBooking(first.bookingId));
+      footer.appendChild(deleteBtn);
     }
 
     return wrap;
@@ -334,6 +346,67 @@
       await loadOrders();
     }catch(e){}
   }
+
+  // Deletes one booking (and all its day-orders). Double-checked: the person
+  // must re-type the exact admin API key before this fires, even though
+  // they're already logged in — a deliberate extra guard against a stray click.
+  async function deleteBooking(bookingId){
+    const entered = prompt(`This will permanently delete booking ${bookingId} and all its day-orders.\n\nType your admin API key to confirm:`);
+    if(entered === null) return; // cancelled
+    if(entered !== apiKey){
+      alert('That key did not match. Nothing was deleted.');
+      return;
+    }
+    try{
+      const res = await fetch(`/api/admin/bookings/${encodeURIComponent(bookingId)}`, {
+        method:'DELETE', headers: authHeaders()
+      });
+      if(!res.ok){
+        const result = await res.json().catch(()=>({}));
+        alert(result.error || 'Could not delete this booking.');
+        return;
+      }
+      await loadStats();
+      await loadOrders();
+    }catch(e){
+      alert('Could not reach the server.');
+    }
+  }
+
+  // Deletes every booking and order. Double-checked with two separate
+  // prompts — re-typing the admin key, then a typed confirmation phrase —
+  // since this is irreversible and affects everything, not just one booking.
+  async function resetAllOrders(){
+    const enteredKey = prompt('This will PERMANENTLY DELETE every booking and order in the system.\n\nType your admin API key to confirm:');
+    if(enteredKey === null) return;
+    if(enteredKey !== apiKey){
+      alert('That key did not match. Nothing was deleted.');
+      return;
+    }
+    const phrase = prompt('Last step. Type exactly: DELETE ALL\n\n(this cannot be undone)');
+    if(phrase === null) return;
+    if(phrase !== 'DELETE ALL'){
+      alert('That did not match "DELETE ALL". Nothing was deleted.');
+      return;
+    }
+    try{
+      const res = await fetch('/api/admin/orders', {
+        method:'DELETE', headers: authHeaders(), body: JSON.stringify({ confirm: 'DELETE ALL' })
+      });
+      const result = await res.json().catch(()=>({}));
+      if(!res.ok){
+        alert(result.error || 'Could not reset orders.');
+        return;
+      }
+      alert(`Deleted ${result.deletedCount} order(s).`);
+      await loadStats();
+      await loadOrders();
+    }catch(e){
+      alert('Could not reach the server.');
+    }
+  }
+
+  document.getElementById('resetAllBtn').addEventListener('click', resetAllOrders);
 
   document.getElementById('refreshBtn').addEventListener('click', ()=>{ loadStats(); loadOrders(); });
 
