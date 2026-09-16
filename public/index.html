@@ -448,12 +448,7 @@
       if (payAmtLabel) {
         payAmtLabel.textContent = result.totalAmount.toLocaleString('en-IN');
       }
-    const razorpayAmountLabel = document.getElementById('razorpayAmountLabel');
-
-if (razorpayAmountLabel) {
-    razorpayAmountLabel.textContent =
-        Number(orderData.amount / 100).toLocaleString('en-IN');
-}
+   
 
       const breakdown = document.getElementById('dayBreakdown');
       breakdown.innerHTML = result.orders.map(o => `
