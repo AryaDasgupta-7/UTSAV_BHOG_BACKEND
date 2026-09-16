@@ -7,6 +7,12 @@ const multer = require('multer');
 const { connectDB, ordersCollection, settingsCollection } = require('./db');
 const { sendOrderEmail, sendCustomerReceiptEmail } = require('./email');
 const { uploadScreenshot } = require('./screenshot');
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 
 const RATE_PER_PLATE = 500;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
