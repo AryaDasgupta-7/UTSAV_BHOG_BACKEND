@@ -14,5 +14,6 @@
     "express": "^4.19.2",
     "mongodb": "^7.6.0",
     "multer": "^2.4.0"
+    "razorpay": "^2.9.6"
   }
 }
