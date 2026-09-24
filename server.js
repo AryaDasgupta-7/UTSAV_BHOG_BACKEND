@@ -1,19 +1,20 @@
 require('dotenv').config();
 
 const path = require('path');
-const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
-const Razorpay = require('razorpay');
 
 const { connectDB, ordersCollection, settingsCollection } = require('./db');
 const { sendOrderEmail, sendCustomerReceiptEmail } = require('./email');
 const { uploadScreenshot } = require('./screenshot');
+const payu = require('./payu');
 
 const RATE_PER_PLATE = 500;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
-const SETTINGS_ID = 'main';
+const SETTINGS_ID = 'main'; // we only ever keep one settings document
 
+// The four days a customer can book bhog for, and a short code used inside
+// that day's unique order ID (e.g. UTSAV26-SAS-XXXXX for Shoshti).
 const DAY_CODES = {
   Shoshti: 'SAS',
   'Saptami (Adhik Puja)': 'SAA',
@@ -24,13 +25,10 @@ const DAY_CODES = {
 const VALID_DAYS = Object.keys(DAY_CODES);
 const VALID_LUNCH_TYPES = ['Packing', 'Community Lunch (Dine-In)'];
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
-
+// ---------- app ----------
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // PayU's callback posts form-urlencoded data
 app.use(express.static(path.join(__dirname, 'public')));
 
 function genId(middle) {
@@ -55,6 +53,7 @@ async function getSettings() {
 
 // ---------- public endpoints ----------
 
+// Create a new booking, made up of one order per selected day.
 app.post('/api/orders', async (req, res) => {
   const { name, phone, email, lunchType, days } = req.body || {};
 
@@ -108,7 +107,7 @@ app.post('/api/orders', async (req, res) => {
     email: cleanEmail,
     qty,
     amount: qty * RATE_PER_PLATE,
-    status: 'pending',
+    status: 'pending', // pending | paid
     createdAt
   }));
 
@@ -137,6 +136,7 @@ app.post('/api/orders', async (req, res) => {
     ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent('Bhog booking ' + bookingId)}`
     : null;
 
+  // Best-effort email notifications. Never blocks the order response.
   sendOrderEmail(booking).catch(err => console.error('Seller email failed:', err.message));
   sendCustomerReceiptEmail(booking, upiLink).catch(err => console.error('Customer email failed:', err.message));
 
@@ -150,150 +150,116 @@ app.post('/api/orders', async (req, res) => {
   });
 });
 
-// ---------- Razorpay ----------
-
-app.post('/api/payments/create-order', async (req, res) => {
-  const { bookingId } = req.body || {};
-
-  if (!bookingId) {
-    return res.status(400).json({ error: 'Booking ID is required.' });
-  }
-
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-    return res.status(500).json({ error: 'Razorpay is not configured on the server.' });
-  }
-
-  try {
-    const orders = await ordersCollection().find({ bookingId }).toArray();
-
-    if (!orders.length) {
-      return res.status(404).json({ error: 'Booking not found.' });
-    }
-
-    const totalAmount = orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
-
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      return res.status(400).json({ error: 'Invalid booking amount.' });
-    }
-
-    if (orders.every(order => order.status === 'paid')) {
-      return res.status(400).json({ error: 'This booking has already been paid.' });
-    }
-
-    // Reuse an existing Razorpay order for this booking when possible.
-    const existingOrderId = orders.find(o => o.razorpayOrderId)?.razorpayOrderId;
-    let razorpayOrder;
-
-    if (existingOrderId) {
-      try {
-        razorpayOrder = await razorpay.orders.fetch(existingOrderId);
-      } catch (_) {
-        razorpayOrder = null;
-      }
-    }
-
-    if (!razorpayOrder) {
-      razorpayOrder = await razorpay.orders.create({
-        amount: Math.round(totalAmount * 100),
-        currency: 'INR',
-        receipt: bookingId,
-        notes: { bookingId }
-      });
-    }
-
-    await ordersCollection().updateMany(
-      { bookingId },
-      {
-        $set: {
-          razorpayOrderId: razorpayOrder.id,
-          razorpayOrderCreatedAt: new Date().toISOString()
-        }
-      }
-    );
-
-    res.json({
-      keyId: process.env.RAZORPAY_KEY_ID,
-      orderId: razorpayOrder.id,
-      amount: razorpayOrder.amount,
-      currency: razorpayOrder.currency,
-      bookingId
-    });
-  } catch (error) {
-    console.error('Razorpay order creation failed:', error);
-    res.status(500).json({ error: 'Could not create the Razorpay payment order.' });
-  }
-});
-
-app.post('/api/payments/verify', async (req, res) => {
-  const {
-    bookingId,
-    razorpay_payment_id,
-    razorpay_order_id,
-    razorpay_signature
-  } = req.body || {};
-
-  if (!bookingId || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
-    return res.status(400).json({ error: 'Missing payment verification details.' });
-  }
-
-  try {
-    const bookingOrders = await ordersCollection().find({ bookingId }).toArray();
-
-    if (!bookingOrders.length) {
-      return res.status(404).json({ error: 'Booking not found.' });
-    }
-
-    const storedOrderId = bookingOrders[0].razorpayOrderId;
-
-    if (!storedOrderId) {
-      return res.status(400).json({ error: 'No Razorpay order is associated with this booking.' });
-    }
-
-    if (storedOrderId !== razorpay_order_id) {
-      return res.status(400).json({ error: 'Razorpay order ID mismatch.' });
-    }
-
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${storedOrderId}|${razorpay_payment_id}`)
-      .digest('hex');
-
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
-    const receivedBuffer = Buffer.from(String(razorpay_signature), 'hex');
-
-    if (
-      expectedBuffer.length !== receivedBuffer.length ||
-      !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
-    ) {
-      console.error('Invalid Razorpay signature for booking:', bookingId);
-      return res.status(400).json({ error: 'Payment verification failed.' });
-    }
-
-    await ordersCollection().updateMany(
-      { bookingId },
-      {
-        $set: {
-          status: 'paid',
-          razorpayPaymentId: razorpay_payment_id,
-          razorpayOrderId: razorpay_order_id,
-          razorpaySignatureVerified: true,
-          paidAt: new Date().toISOString()
-        }
-      }
-    );
-
-    res.json({ ok: true, paid: true, bookingId });
-  } catch (error) {
-    console.error('Razorpay verification failed:', error);
-    res.status(500).json({ error: 'Could not verify payment.' });
-  }
-});
-
+// Public UPI settings, used by the storefront to build the payment link/QR
 app.get('/api/settings', async (req, res) => {
   const settings = await getSettings();
   res.json({ upiId: settings.upiId, payeeName: settings.payeeName });
 });
 
+// Public: called by the storefront when the customer chooses to pay by
+// card/netbanking/UPI through PayU instead of the plain UPI QR. Builds the
+// hashed form fields the browser will auto-submit to PayU's hosted page.
+app.post('/api/orders/:bookingId/payu-params', async (req, res) => {
+  const { bookingId } = req.params;
+
+  if (!payu.isConfigured()) {
+    return res.status(503).json({ error: 'Card/UPI checkout via PayU is not set up yet. Please use the UPI QR code instead.' });
+  }
+
+  const orders = await ordersCollection().find({ bookingId }).toArray();
+  if (orders.length === 0) {
+    return res.status(404).json({ error: 'Booking not found.' });
+  }
+
+  const first = orders[0];
+  const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
+  const key = process.env.PAYU_MERCHANT_KEY;
+  const salt = process.env.PAYU_SALT;
+  const amount = totalAmount.toFixed(2);
+  const productinfo = `Lunch Bhog Booking ${bookingId}`;
+  const firstname = first.name;
+  const email = first.email;
+  const phone = first.phone;
+  // A fresh txnid per attempt, so a retried/failed payment can be tried again.
+  const txnid = `${bookingId}-${Date.now().toString(36)}`.slice(0, 40);
+
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const surl = `${baseUrl}/payu/callback`;
+  const furl = `${baseUrl}/payu/callback`;
+
+  const hash = payu.generateRequestHash({ key, txnid, amount, productinfo, firstname, email, salt });
+
+  // Remember this attempt so the callback can cross-check the amount instead
+  // of blindly trusting whatever PayU's redirect claims.
+  await ordersCollection().updateMany(
+    { bookingId },
+    { $set: { payuTxnId: txnid, payuExpectedAmount: amount } }
+  );
+
+  res.json({
+    url: payu.getPaymentUrl(),
+    fields: { key, txnid, amount, productinfo, firstname, email, phone, surl, furl, hash }
+  });
+});
+
+// PayU redirects the customer's browser here (via a POST) after payment,
+// whether it succeeded or failed. We verify PayU's own hash before trusting
+// anything in this request — this is what actually confirms the payment,
+// not the browser arriving here.
+app.post('/payu/callback', async (req, res) => {
+  const { status, txnid, amount, productinfo, firstname, email, key, hash, mihpayid } = req.body || {};
+
+  function renderResult(ok, title, message) {
+    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${title}</title>
+      <style>
+        body{font-family:'Work Sans',Arial,sans-serif;background:#FBF3E6;color:#2A1B14;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center;}
+        .box{background:#FFFDF9;border:1px solid #DECBAA;border-radius:14px;padding:32px 24px;max-width:420px;}
+        h1{color:${ok ? '#1F4B3F' : '#B0392F'};font-size:22px;margin:0 0 12px;}
+        p{color:#6B5B4E;font-size:14.5px;line-height:1.6;}
+        a{display:inline-block;margin-top:18px;background:#A5303A;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;}
+      </style></head><body>
+      <div class="box"><h1>${title}</h1><p>${message}</p><a href="/">Return to site</a></div>
+      </body></html>`);
+  }
+
+  if (!txnid || !hash) {
+    return renderResult(false, 'Payment error', 'We could not read the payment response. If money was deducted, please contact us with your Booking ID.');
+  }
+
+  const validHash = payu.verifyResponseHash({ key, txnid, amount, productinfo, firstname, email, status, hash });
+  if (!validHash) {
+    console.error(`PayU hash verification FAILED for txnid ${txnid} — possible tampering.`);
+    return renderResult(false, 'Payment could not be verified', 'Something did not match. If money was deducted, please contact us with your Booking ID and transaction details.');
+  }
+
+  // Cross-check against what we actually expected for this exact attempt —
+  // never trust the posted amount alone, even after the hash checks out.
+  const matchingOrders = await ordersCollection().find({ payuTxnId: txnid }).toArray();
+  if (matchingOrders.length === 0) {
+    return renderResult(false, 'Booking not found', 'We could not match this payment to a booking. Please contact us with your transaction ID: ' + (mihpayid || txnid));
+  }
+  const bookingId = matchingOrders[0].bookingId;
+  const expectedAmount = matchingOrders[0].payuExpectedAmount;
+  if (String(amount) !== String(expectedAmount)) {
+    console.error(`PayU amount mismatch for booking ${bookingId}: expected ${expectedAmount}, got ${amount}`);
+    return renderResult(false, 'Amount mismatch', 'The paid amount did not match your booking. Please contact us with your Booking ID: ' + bookingId);
+  }
+
+  if (status === 'success') {
+    await ordersCollection().updateMany(
+      { bookingId },
+      { $set: { status: 'paid', payuPaymentId: mihpayid || '', paidAt: new Date().toISOString() } }
+    );
+    return renderResult(true, 'Payment successful', `Your payment for Booking ID ${bookingId} is confirmed. Thank you!`);
+  }
+
+  await ordersCollection().updateMany({ bookingId }, { $set: { payuLastStatus: status || 'failed' } });
+  return renderResult(false, 'Payment not completed', `Your payment for Booking ID ${bookingId} was not successful (${status || 'unknown'}). You can try again from the booking page, or use the UPI QR code instead.`);
+});
+
+// Public: customer submits their UPI reference number (UTR) after paying,
+// so the seller can match it against their bank statement quickly.
 app.post('/api/orders/:bookingId/utr', async (req, res) => {
   const { bookingId } = req.params;
   const utr = String((req.body || {}).utr || '').trim();
@@ -314,9 +280,12 @@ app.post('/api/orders/:bookingId/utr', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Public: customer uploads a screenshot of their UPI payment confirmation.
+// The image itself goes to Cloudinary (not MongoDB, which has only 512MB
+// free) — only the resulting URL is saved on the booking's day-orders.
 const screenshotUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });
 
 function handleScreenshotUpload(req, res, next) {
@@ -361,7 +330,7 @@ app.post('/api/orders/:bookingId/screenshot', handleScreenshotUpload, async (req
   res.json({ ok: true, url });
 });
 
-// ---------- admin endpoints ----------
+// ---------- admin endpoints (require x-api-key header) ----------
 
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
@@ -400,10 +369,14 @@ app.post('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => 
     return res.status(400).json({ error: 'Status must be "pending" or "paid".' });
   }
   const result = await ordersCollection().updateOne({ orderId }, { $set: { status } });
-  if (result.matchedCount === 0) return res.status(404).json({ error: 'Order not found.' });
+  if (result.matchedCount === 0) {
+    return res.status(404).json({ error: 'Order not found.' });
+  }
   res.json({ ok: true });
 });
 
+// Mark every day-order under one booking as paid/pending in a single action —
+// useful since a booking is usually paid for in one transaction.
 app.post('/api/admin/bookings/:bookingId/status', requireAdmin, async (req, res) => {
   const { bookingId } = req.params;
   const { status } = req.body || {};
@@ -411,17 +384,28 @@ app.post('/api/admin/bookings/:bookingId/status', requireAdmin, async (req, res)
     return res.status(400).json({ error: 'Status must be "pending" or "paid".' });
   }
   const result = await ordersCollection().updateMany({ bookingId }, { $set: { status } });
-  if (result.matchedCount === 0) return res.status(404).json({ error: 'Booking not found.' });
+  if (result.matchedCount === 0) {
+    return res.status(404).json({ error: 'Booking not found.' });
+  }
   res.json({ ok: true, updated: result.matchedCount });
 });
 
+// Delete one whole booking (every day-order under it). Requires the admin
+// key like every other admin route — the frontend adds a second confirmation
+// step (re-typing the key) before ever calling this.
 app.delete('/api/admin/bookings/:bookingId', requireAdmin, async (req, res) => {
   const { bookingId } = req.params;
   const result = await ordersCollection().deleteMany({ bookingId });
-  if (result.deletedCount === 0) return res.status(404).json({ error: 'Booking not found.' });
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ error: 'Booking not found.' });
+  }
   res.json({ ok: true, deletedCount: result.deletedCount });
 });
 
+// Deletes every order/booking permanently. Requires the admin key, PLUS an
+// exact confirmation phrase in the body, on top of the frontend's own
+// re-type-your-key confirmation step — this is deliberately hard to trigger
+// by accident.
 app.delete('/api/admin/orders', requireAdmin, async (req, res) => {
   const { confirm } = req.body || {};
   if (confirm !== 'DELETE ALL') {
@@ -433,10 +417,9 @@ app.delete('/api/admin/orders', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
-  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Screenshot URL', 'Razorpay Order ID', 'Razorpay Payment ID', 'Paid At', 'Created At'];
+  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Screenshot URL', 'PayU Payment ID', 'Created At'];
   const rows = orders.map(o => [
-    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status,
-    o.utr || '', o.screenshotUrl || '', o.razorpayOrderId || '', o.razorpayPaymentId || '', o.paidAt || '', o.createdAt
+    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.utr || '', o.screenshotUrl || '', o.payuPaymentId || '', o.createdAt
   ]);
   const csv = [header, ...rows]
     .map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(','))
@@ -449,6 +432,7 @@ app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
+// Connect to MongoDB Atlas first, then start accepting requests.
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
