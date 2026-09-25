@@ -1,4 +1,4 @@
-<pre><code>require('dotenv').config();
+require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
@@ -2074,4 +2074,4 @@ connectDB()
 
     }
   );
-</code></pre>
+
