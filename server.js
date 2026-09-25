@@ -2,53 +2,61 @@ require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
-const crypto = require('crypto');
 
-const { connectDB, ordersCollection } = require('./db');
+const {
+  connectDB,
+  ordersCollection
+} = require('./db');
+
 const {
   sendOrderEmail,
   sendCustomerReceiptEmail
 } = require('./email');
+
 const payu = require('./payu');
+
+
+// ============================================================
+// CONFIGURATION
+// ============================================================
 
 const RATE_PER_PLATE = 500;
 
 const ADMIN_API_KEY =
   process.env.ADMIN_API_KEY || 'change-me';
 
+
+// ============================================================
+// BOOKING DAYS
+// ============================================================
+
+const DAY_CODES = {
+  'Saptami': 'SAP',
+  'Adhik Saptami': 'ADS',
+  'Ashtami': 'ASH',
+  'Navami': 'NAV'
+};
+
+const VALID_DAYS = Object.keys(DAY_CODES);
+
 const VALID_LUNCH_TYPES = [
   'Packing',
   'Community Lunch (Dine-In)'
 ];
 
-/*
-|--------------------------------------------------------------------------
-| BOOKING DAYS
-|--------------------------------------------------------------------------
-*/
 
-const DAY_CODES = {
-  Saptami: 'SAP',
-  'Adhik Saptami': 'ADS',
-  Ashtami: 'ASH',
-  Navami: 'NAV'
-};
-
-const VALID_DAYS = Object.keys(DAY_CODES);
-
-/*
-|--------------------------------------------------------------------------
-| APP
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// EXPRESS APP
+// ============================================================
 
 const app = express();
 
+// Render sits behind a proxy.
+// This makes req.protocol correctly become https.
+app.set('trust proxy', 1);
+
 app.use(express.json());
 
-/*
- * PayU sends the callback as application/x-www-form-urlencoded.
- */
 app.use(
   express.urlencoded({
     extended: true
@@ -61,37 +69,43 @@ app.use(
   )
 );
 
-/*
-|--------------------------------------------------------------------------
-| ID HELPERS
-|--------------------------------------------------------------------------
-*/
 
-/*
- * Internal booking reference.
- *
- * IMPORTANT:
- * This is NOT the customer's final UTSAV Order ID.
- * It is only used internally while payment is pending.
- */
-function generateInternalBookingId() {
+// ============================================================
+// ID GENERATORS
+// ============================================================
 
-  const random =
-    crypto.randomBytes(8)
-      .toString('hex')
+// Internal booking ID.
+// This is created BEFORE payment.
+//
+// Example:
+// BOOK-ABC123-XYZ789
+//
+// This is NOT the final customer-facing order ID.
+
+function generateBookingId() {
+
+  const timestamp =
+    Date.now()
+      .toString(36)
       .toUpperCase();
 
-  return `PENDING-${Date.now()}-${random}`;
+  const random =
+    Math.random()
+      .toString(36)
+      .substring(2, 8)
+      .toUpperCase();
+
+  return `BOOK-${timestamp}-${random}`;
 }
 
 
-/*
- * FINAL CUSTOMER-FACING ORDER ID.
- *
- * This function is ONLY called after PayU
- * payment has been successfully verified.
- */
-function generateFinalOrderId(dayCode) {
+// Final customer-facing order ID.
+//
+// IMPORTANT:
+// This function is called ONLY after PayU payment
+// has been successfully verified.
+
+function generateOrderId(dayCode) {
 
   const year =
     new Date()
@@ -100,19 +114,23 @@ function generateFinalOrderId(dayCode) {
       .slice(-2);
 
   const random =
-    crypto.randomBytes(4)
-      .toString('hex')
+    Math.random()
+      .toString(36)
+      .substring(2, 6)
       .toUpperCase();
 
-  return `UTSAV${year}-${dayCode}-${random}`;
+  const time =
+    Date.now()
+      .toString()
+      .slice(-4);
+
+  return `UTSAV${year}-${dayCode}-${random}${time}`;
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN AUTH
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN AUTHENTICATION
+// ============================================================
 
 function requireAdmin(req, res, next) {
 
@@ -124,12 +142,10 @@ function requireAdmin(req, res, next) {
     key !== ADMIN_API_KEY
   ) {
 
-    return res
-      .status(401)
-      .json({
-        error:
-          'Unauthorized. Check your admin API key.'
-      });
+    return res.status(401).json({
+      error:
+        'Unauthorized. Check your admin API key.'
+    });
 
   }
 
@@ -137,35 +153,47 @@ function requireAdmin(req, res, next) {
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| VALIDATION HELPERS
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// HEALTH CHECK
+// ============================================================
 
-function cleanString(value) {
+app.get('/api/health', (req, res) => {
 
-  return String(
-    value == null ? '' : value
-  ).trim();
+  res.json({
+    ok: true,
+    service: 'UTSAV Bhog Booking Backend',
+    paymentGateway: 'PayU'
+  });
 
-}
+});
 
 
-/*
-|--------------------------------------------------------------------------
-| CREATE BOOKING
-|--------------------------------------------------------------------------
-|
-| This creates a pending booking.
-|
-| NO final UTSAV Order ID is returned.
-|
-*/
+// ============================================================
+// CREATE BOOKING
+// ============================================================
+//
+// IMPORTANT:
+//
+// This endpoint DOES NOT create the final order ID.
+//
+// It creates:
+//     bookingId
+//
+// Then the customer is sent to PayU.
+//
+// Final order IDs are generated only after
+// successful PayU verification.
+// ============================================================
 
 app.post('/api/orders', async (req, res) => {
 
   try {
+
+    console.log(
+      'NEW ORDER REQUEST:',
+      JSON.stringify(req.body, null, 2)
+    );
+
 
     const {
       name,
@@ -175,33 +203,49 @@ app.post('/api/orders', async (req, res) => {
       days
     } = req.body || {};
 
-    /* -----------------------------
-       VALIDATE CUSTOMER
-    ----------------------------- */
+
+    // --------------------------------------------------------
+    // NAME
+    // --------------------------------------------------------
 
     if (
       !name ||
       typeof name !== 'string' ||
       !name.trim()
     ) {
+
       return res.status(400).json({
-        error: 'Name is required.'
+        error:
+          'Name is required.'
       });
+
     }
 
+
+    // --------------------------------------------------------
+    // PHONE
+    // --------------------------------------------------------
 
     const cleanPhone =
       String(phone || '').trim();
 
     if (
-      !/^[6-9]\d{9}$/.test(cleanPhone)
+      !/^[6-9]\d{9}$/.test(
+        cleanPhone
+      )
     ) {
+
       return res.status(400).json({
         error:
           'Enter a valid 10-digit Indian mobile number.'
       });
+
     }
 
+
+    // --------------------------------------------------------
+    // EMAIL
+    // --------------------------------------------------------
 
     const cleanEmail =
       String(email || '').trim();
@@ -211,43 +255,53 @@ app.post('/api/orders', async (req, res) => {
         cleanEmail
       )
     ) {
+
       return res.status(400).json({
         error:
           'Enter a valid email address.'
       });
+
     }
 
 
-    /* -----------------------------
-       VALIDATE LUNCH TYPE
-    ----------------------------- */
+    // --------------------------------------------------------
+    // LUNCH TYPE
+    // --------------------------------------------------------
 
     if (
       !VALID_LUNCH_TYPES.includes(
         lunchType
       )
     ) {
+
       return res.status(400).json({
         error:
           'Please choose a lunch type.'
       });
+
     }
 
 
-    /* -----------------------------
-       VALIDATE DAYS
-    ----------------------------- */
+    // --------------------------------------------------------
+    // DAYS
+    // --------------------------------------------------------
 
     if (
       !Array.isArray(days) ||
       days.length === 0
     ) {
+
       return res.status(400).json({
         error:
           'Please select at least one day.'
       });
+
     }
 
+
+    // --------------------------------------------------------
+    // VALIDATE EACH DAY
+    // --------------------------------------------------------
 
     const seenDays =
       new Set();
@@ -257,8 +311,7 @@ app.post('/api/orders', async (req, res) => {
 
 
     for (
-      const entry
-      of days
+      const entry of days
     ) {
 
       const day =
@@ -276,20 +329,24 @@ app.post('/api/orders', async (req, res) => {
       if (
         !VALID_DAYS.includes(day)
       ) {
+
         return res.status(400).json({
           error:
             `"${day}" is not a valid booking day.`
         });
+
       }
 
 
       if (
         seenDays.has(day)
       ) {
+
         return res.status(400).json({
           error:
             `"${day}" was selected more than once.`
         });
+
       }
 
 
@@ -298,10 +355,12 @@ app.post('/api/orders', async (req, res) => {
         qtyNum < 1 ||
         qtyNum > 200
       ) {
+
         return res.status(400).json({
           error:
             `Enter a valid number of plates for ${day} (1-200).`
         });
+
       }
 
 
@@ -316,16 +375,9 @@ app.post('/api/orders', async (req, res) => {
     }
 
 
-    /* -----------------------------
-       CREATE INTERNAL BOOKING ID
-
-       IMPORTANT:
-       This is NOT the final customer
-       UTSAV Order ID.
-
-       It exists only so PayU can
-       identify the pending booking.
-    ----------------------------- */
+    // --------------------------------------------------------
+    // CREATE INTERNAL BOOKING ID
+    // --------------------------------------------------------
 
     const bookingId =
       generateBookingId();
@@ -339,55 +391,60 @@ app.post('/api/orders', async (req, res) => {
       name.trim();
 
 
-    /* -----------------------------
-       CREATE PENDING DAY ORDERS
-
-       DO NOT generate final
-       customer-facing order IDs here.
-
-       They are generated only after
-       successful PayU payment.
-    ----------------------------- */
+    // --------------------------------------------------------
+    // CREATE PENDING DAY ORDERS
+    // --------------------------------------------------------
 
     const dayOrders =
       cleanDays.map(
         ({
           day,
           qty
-        }) => ({
+        }) => {
 
-          bookingId,
+          return {
 
-          day,
+            // IMPORTANT:
+            // No final customer order ID yet.
+            orderId: null,
 
-          lunchType,
+            bookingId,
 
-          name:
-            cleanName,
+            day,
 
-          phone:
-            cleanPhone,
+            lunchType,
 
-          email:
-            cleanEmail,
+            name:
+              cleanName,
 
-          qty,
+            phone:
+              cleanPhone,
 
-          amount:
-            qty * RATE_PER_PLATE,
+            email:
+              cleanEmail,
 
-          status:
-            'pending',
+            qty,
 
-          createdAt
+            amount:
+              qty * RATE_PER_PLATE,
 
-        })
+            status:
+              'pending',
+
+            paymentStatus:
+              'pending',
+
+            createdAt
+
+          };
+
+        }
       );
 
 
-    /* -----------------------------
-       TOTAL AMOUNT
-    ----------------------------- */
+    // --------------------------------------------------------
+    // TOTAL
+    // --------------------------------------------------------
 
     const totalAmount =
       dayOrders.reduce(
@@ -401,9 +458,9 @@ app.post('/api/orders', async (req, res) => {
       );
 
 
-    /* -----------------------------
-       SAVE TO MONGODB
-    ----------------------------- */
+    // --------------------------------------------------------
+    // SAVE TO MONGODB
+    // --------------------------------------------------------
 
     try {
 
@@ -427,25 +484,14 @@ app.post('/api/orders', async (req, res) => {
     }
 
 
-    /* -----------------------------
-       DO NOT SEND PAYMENT
-       CONFIRMATION EMAIL YET.
-
-       Payment has NOT happened.
-
-       PayU confirmation will happen
-       through /payu/callback.
-    ----------------------------- */
-
-
     console.log(
       `Pending booking created: ${bookingId} | Amount: ₹${totalAmount}`
     );
 
 
-    /* -----------------------------
-       RETURN TO FRONTEND
-    ----------------------------- */
+    // --------------------------------------------------------
+    // RETURN TO FRONTEND
+    // --------------------------------------------------------
 
     return res.status(201).json({
 
@@ -458,9 +504,15 @@ app.post('/api/orders', async (req, res) => {
       paymentStatus:
         'pending',
 
+      // orderId deliberately NOT supplied yet.
+      // It will be generated after successful payment.
+
       orders:
         dayOrders.map(
           order => ({
+
+            orderId:
+              null,
 
             day:
               order.day,
@@ -496,11 +548,14 @@ app.post('/api/orders', async (req, res) => {
 });
 
 
-/*
-|--------------------------------------------------------------------------
-| PAYU INITIATION
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// PAYU PAYMENT PARAMETERS
+// ============================================================
+//
+// The frontend calls this after the booking is created.
+//
+// This endpoint creates a PayU transaction and hash.
+// ============================================================
 
 app.post(
   '/api/orders/:bookingId/payu-params',
@@ -513,28 +568,31 @@ app.post(
       } = req.params;
 
 
-      /*
-       * PayU credentials must exist
-       * only on Render environment variables.
-       */
+      // ------------------------------------------------------
+      // CHECK PAYU CONFIG
+      // ------------------------------------------------------
 
       if (
         !payu.isConfigured()
       ) {
 
-        return res
-          .status(503)
-          .json({
-            error:
-              'PayU is not configured on the server.'
-          });
+        console.error(
+          'PayU is not configured.'
+        );
+
+        return res.status(503).json({
+
+          error:
+            'PayU payment is not configured. Please contact the administrator.'
+
+        });
 
       }
 
 
-      /*
-       * Find pending booking.
-       */
+      // ------------------------------------------------------
+      // FIND BOOKING
+      // ------------------------------------------------------
 
       const orders =
         await ordersCollection()
@@ -548,20 +606,17 @@ app.post(
         orders.length === 0
       ) {
 
-        return res
-          .status(404)
-          .json({
-            error:
-              'Booking not found.'
-          });
+        return res.status(404).json({
+          error:
+            'Booking not found.'
+        });
 
       }
 
 
-      /*
-       * Do not allow payment initiation
-       * for already paid bookings.
-       */
+      // ------------------------------------------------------
+      // DO NOT ALLOW ALREADY PAID BOOKINGS
+      // ------------------------------------------------------
 
       const alreadyPaid =
         orders.some(
@@ -572,15 +627,17 @@ app.post(
 
       if (alreadyPaid) {
 
-        return res
-          .status(400)
-          .json({
-            error:
-              'This booking has already been paid.'
-          });
+        return res.status(400).json({
+          error:
+            'This booking has already been paid.'
+        });
 
       }
 
+
+      // ------------------------------------------------------
+      // CALCULATE TOTAL FROM DATABASE
+      // ------------------------------------------------------
 
       const first =
         orders[0];
@@ -593,7 +650,7 @@ app.post(
             order
           ) =>
             sum +
-            Number(order.amount),
+            Number(order.amount || 0),
           0
         );
 
@@ -602,17 +659,19 @@ app.post(
         totalAmount.toFixed(2);
 
 
-      const key =
-        process.env
-          .PAYU_MERCHANT_KEY;
+      // ------------------------------------------------------
+      // PAYU DETAILS
+      // ------------------------------------------------------
 
+      const key =
+        process.env.PAYU_MERCHANT_KEY;
 
       const salt =
         process.env.PAYU_SALT;
 
 
       const productinfo =
-        `UTSAV Bhog Booking`;
+        `Lunch Bhog Booking ${bookingId}`;
 
 
       const firstname =
@@ -627,17 +686,18 @@ app.post(
         first.phone;
 
 
-      /*
-       * Fresh transaction ID for every
-       * PayU payment attempt.
-       */
+      // ------------------------------------------------------
+      // UNIQUE PAYU TRANSACTION ID
+      // ------------------------------------------------------
 
       const txnid =
-        `UTSAV-${Date.now()}-${crypto
-          .randomBytes(4)
-          .toString('hex')}`
+        `${bookingId}-${Date.now().toString(36)}`
           .slice(0, 40);
 
+
+      // ------------------------------------------------------
+      // CALLBACK URL
+      // ------------------------------------------------------
 
       const baseUrl =
         `${req.protocol}://${req.get('host')}`;
@@ -651,9 +711,9 @@ app.post(
         `${baseUrl}/payu/callback`;
 
 
-      /*
-       * Generate request hash on SERVER.
-       */
+      // ------------------------------------------------------
+      // CREATE PAYU HASH
+      // ------------------------------------------------------
 
       const hash =
         payu.generateRequestHash({
@@ -675,17 +735,17 @@ app.post(
         });
 
 
-      /*
-       * Save payment attempt details.
-       *
-       * These are used during callback verification.
-       */
+      // ------------------------------------------------------
+      // SAVE PAYU ATTEMPT
+      // ------------------------------------------------------
 
       await ordersCollection()
         .updateMany(
+
           {
             bookingId
           },
+
           {
             $set: {
 
@@ -696,13 +756,21 @@ app.post(
                 amount,
 
               paymentStatus:
-                'initiated'
+                'processing',
+
+              payuAttemptedAt:
+                new Date().toISOString()
 
             }
 
           }
+
         );
 
+
+      // ------------------------------------------------------
+      // RETURN PAYU FORM DATA
+      // ------------------------------------------------------
 
       return res.json({
 
@@ -735,19 +803,20 @@ app.post(
 
       });
 
+
     } catch (error) {
 
       console.error(
-        'PayU initiation error:',
+        'PayU parameter generation error:',
         error
       );
 
-      return res
-        .status(500)
-        .json({
-          error:
-            'Could not start PayU payment.'
-        });
+      return res.status(500).json({
+
+        error:
+          'Could not initialize PayU payment.'
+
+      });
 
     }
 
@@ -755,24 +824,15 @@ app.post(
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| PAYU CALLBACK
-|--------------------------------------------------------------------------
-|
-| This is the MOST IMPORTANT part.
-|
-| The customer-facing final Order ID is
-| generated ONLY inside the SUCCESS branch
-| AFTER:
-|
-| 1. PayU response hash verified
-| 2. Transaction ID matched
-| 3. Amount matched
-| 4. Payment status is success
-|
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// PAYU CALLBACK
+// ============================================================
+//
+// PayU redirects here after payment.
+//
+// IMPORTANT:
+// We verify PayU's response hash BEFORE marking anything paid.
+// ============================================================
 
 app.post(
   '/payu/callback',
@@ -803,177 +863,114 @@ app.post(
       } = req.body || {};
 
 
-      /*
-       * Small HTML response helper.
-       */
+      // ------------------------------------------------------
+      // HTML RESULT PAGE
+      // ------------------------------------------------------
 
       function renderResult(
-        success,
+        ok,
         title,
-        message,
-        finalOrderId = null
+        message
       ) {
+
+        const safeTitle =
+          String(title)
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
 
         const safeMessage =
           String(message)
-            .replace(
-              /&/g,
-              '&amp;'
-            )
-            .replace(
-              /</g,
-              '&lt;'
-            )
-            .replace(
-              />/g,
-              '&gt;'
-            )
-            .replace(
-              /"/g,
-              '&quot;'
-            );
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
 
 
-        const orderSection =
-          finalOrderId
-            ? `
-              <div style="
-                margin:20px 0;
-                padding:14px;
-                background:#EFF5F2;
-                border:1px solid #CFE1D8;
-                border-radius:10px;
-              ">
-                <div style="
-                  font-size:11px;
-                  color:#6B5B4E;
-                  margin-bottom:5px;
-                ">
-                  YOUR UTSAV ORDER ID
-                </div>
+        res.send(`<!DOCTYPE html>
 
-                <strong style="
-                  font-size:20px;
-                  color:#1F4B3F;
-                ">
-                  ${finalOrderId}
-                </strong>
-              </div>
-            `
-            : '';
+<html>
 
+<head>
 
-        return res.send(`
+<meta charset="UTF-8">
 
-          <!DOCTYPE html>
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
 
-          <html>
+<title>${safeTitle}</title>
 
-          <head>
+<style>
 
-            <meta charset="UTF-8">
+body {
+  font-family: Arial, sans-serif;
+  background: #FBF3E6;
+  color: #2A1B14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+}
 
-            <meta
-              name="viewport"
-              content="width=device-width,initial-scale=1.0"
-            >
+.box {
+  background: #FFFDF9;
+  border: 1px solid #DECBAA;
+  border-radius: 14px;
+  padding: 32px 24px;
+  max-width: 480px;
+  width: 100%;
+}
 
-            <title>
-              ${success
-                ? 'Payment Successful'
-                : 'Payment Status'}
-            </title>
+h1 {
+  color: ${ok ? '#1F4B3F' : '#B0392F'};
+  font-size: 24px;
+  margin-bottom: 14px;
+}
 
-            <style>
+p {
+  color: #6B5B4E;
+  line-height: 1.6;
+}
 
-              body{
-                font-family:
-                  Arial,
-                  sans-serif;
+a {
+  display: inline-block;
+  margin-top: 18px;
+  background: #A5303A;
+  color: white;
+  text-decoration: none;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+}
 
-                background:#FBF3E6;
+</style>
 
-                color:#2A1B14;
+</head>
 
-                min-height:100vh;
+<body>
 
-                display:flex;
+<div class="box">
 
-                align-items:center;
+<h1>${safeTitle}</h1>
 
-                justify-content:center;
+<p>${safeMessage}</p>
 
-                padding:20px;
-              }
+<a href="/">Return to site</a>
 
-              .box{
-                max-width:450px;
-                width:100%;
-                background:#FFFDF9;
-                border:1px solid #DECBAA;
-                border-radius:14px;
-                padding:30px;
-                text-align:center;
-              }
+</div>
 
-              h1{
-                color:
-                  ${success
-                    ? '#1F4B3F'
-                    : '#B0392F'};
-              }
+</body>
 
-              p{
-                color:#6B5B4E;
-                line-height:1.6;
-              }
-
-              a{
-                display:inline-block;
-                margin-top:15px;
-                padding:12px 20px;
-                background:#A5303A;
-                color:white;
-                text-decoration:none;
-                border-radius:9px;
-              }
-
-            </style>
-
-          </head>
-
-          <body>
-
-            <div class="box">
-
-              <h1>
-                ${title}
-              </h1>
-
-              <p>
-                ${safeMessage}
-              </p>
-
-              ${orderSection}
-
-              <a href="/">
-                Return to UTSAV
-              </a>
-
-            </div>
-
-          </body>
-
-          </html>
-
-        `);
+</html>`);
 
       }
 
 
-      /*
-       * Basic callback validation.
-       */
+      // ------------------------------------------------------
+      // BASIC CALLBACK VALIDATION
+      // ------------------------------------------------------
 
       if (
         !txnid ||
@@ -981,17 +978,21 @@ app.post(
       ) {
 
         return renderResult(
+
           false,
-          'Payment Error',
-          'The payment response was incomplete. If money was deducted, please contact the UTSAV help desk.'
+
+          'Payment error',
+
+          'We could not read the PayU payment response.'
+
         );
 
       }
 
 
-      /*
-       * Verify PayU response hash.
-       */
+      // ------------------------------------------------------
+      // VERIFY PAYU RESPONSE HASH
+      // ------------------------------------------------------
 
       const validHash =
         payu.verifyResponseHash({
@@ -1015,26 +1016,31 @@ app.post(
         });
 
 
-      if (!validHash) {
+      if (
+        !validHash
+      ) {
 
         console.error(
-          'PayU response hash verification FAILED:',
-          txnid
+          `PayU hash verification FAILED for transaction ${txnid}`
         );
 
+
         return renderResult(
+
           false,
-          'Payment Could Not Be Verified',
-          'The PayU response could not be verified. If money was deducted, please contact the UTSAV help desk.'
+
+          'Payment could not be verified',
+
+          'The payment response could not be verified. If money was deducted, please contact the administrator with your transaction details.'
+
         );
 
       }
 
 
-      /*
-       * Find the booking using the
-       * transaction ID we generated.
-       */
+      // ------------------------------------------------------
+      // FIND BOOKING USING PAYU TRANSACTION ID
+      // ------------------------------------------------------
 
       const matchingOrders =
         await ordersCollection()
@@ -1050,9 +1056,13 @@ app.post(
       ) {
 
         return renderResult(
+
           false,
-          'Booking Not Found',
-          `We could not match this payment to a booking. Transaction: ${mihpayid || txnid}`
+
+          'Booking not found',
+
+          `We could not match this payment to a booking. Transaction ID: ${mihpayid || txnid}`
+
         );
 
       }
@@ -1063,10 +1073,9 @@ app.post(
           .bookingId;
 
 
-      /*
-       * Expected amount was generated
-       * by OUR server.
-       */
+      // ------------------------------------------------------
+      // CHECK EXPECTED AMOUNT
+      // ------------------------------------------------------
 
       const expectedAmount =
         matchingOrders[0]
@@ -1079,153 +1088,139 @@ app.post(
       ) {
 
         console.error(
-          'PayU amount mismatch:',
-          {
-            bookingId,
-            expectedAmount,
-            receivedAmount:
-              amount
-          }
+
+          `PayU amount mismatch for booking ${bookingId}. Expected ${expectedAmount}, received ${amount}`
+
         );
 
 
         return renderResult(
+
           false,
-          'Amount Mismatch',
-          'The payment amount did not match the booking amount. Please contact the UTSAV help desk.'
+
+          'Amount mismatch',
+
+          `The payment amount did not match your booking. Booking ID: ${bookingId}`
+
         );
 
       }
 
 
-      /*
-       * PAYMENT SUCCESS
-       */
+      // ======================================================
+      // PAYMENT SUCCESS
+      // ======================================================
 
       if (
-        String(status)
-          .toLowerCase() ===
+        String(status).toLowerCase() ===
         'success'
       ) {
 
+        // ----------------------------------------------------
+        // CHECK IF ALREADY PROCESSED
+        // ----------------------------------------------------
 
-        /*
-         * Check whether another callback
-         * has already completed this booking.
-         */
-
-        const existingPaid =
+        const currentOrders =
           await ordersCollection()
-            .findOne({
-              bookingId,
-              status:'paid'
-            });
+            .find({
+              bookingId
+            })
+            .toArray();
 
 
-        let finalOrderId;
+        const alreadyProcessed =
+          currentOrders.some(
+            order =>
+              order.status === 'paid'
+          );
 
 
         if (
-          existingPaid &&
-          existingPaid.orderId
+          alreadyProcessed
         ) {
 
-          /*
-           * Idempotency:
-           * don't create another order ID
-           * if PayU sends callback twice.
-           */
+          return renderResult(
 
-          finalOrderId =
-            existingPaid.orderId;
+            true,
 
-        } else {
+            'Payment already confirmed',
 
-          /*
-           * Generate the REAL customer-facing
-           * Order ID only NOW.
-           */
+            `Your payment for Booking ID ${bookingId} has already been confirmed.`
 
-          finalOrderId =
-            generateFinalOrderId(
-              DAY_CODES[
-                matchingOrders[0].day
-              ]
-            );
+          );
 
         }
 
 
+        // ----------------------------------------------------
+        // GENERATE FINAL ORDER IDS
+        // ONLY NOW
+        // ----------------------------------------------------
+
         const paidAt =
-          new Date()
-            .toISOString();
+          new Date().toISOString();
 
-
-        /*
-         * IMPORTANT:
-         *
-         * All selected days belong to one
-         * payment transaction.
-         *
-         * Give every day the same final
-         * booking/order reference.
-         *
-         * Individual day IDs are generated
-         * using their own day code.
-         */
 
         const bulkOperations =
-          matchingOrders.map(
-            order => ({
+          currentOrders.map(
+            order => {
 
-              updateOne: {
+              const finalOrderId =
+                generateOrderId(
+                  DAY_CODES[
+                    order.day
+                  ]
+                );
 
-                filter: {
-                  _id:
-                    order._id
-                },
 
-                update: {
+              return {
 
-                  $set: {
+                updateOne: {
 
-                    status:
-                      'paid',
+                  filter: {
+                    _id:
+                      order._id
+                  },
 
-                    paymentStatus:
-                      'paid',
+                  update: {
 
-                    finalOrderId,
+                    $set: {
 
-                    orderId:
-                      order.orderId ||
-                      generateFinalOrderId(
-                        DAY_CODES[
-                          order.day
-                        ]
-                      ),
+                      orderId:
+                        finalOrderId,
 
-                    payuPaymentId:
-                      mihpayid ||
-                      '',
+                      status:
+                        'paid',
 
-                    paidAt,
+                      paymentStatus:
+                        'paid',
 
-                    payuStatus:
-                      'success'
+                      payuPaymentId:
+                        mihpayid || '',
+
+                      payuTxnId:
+                        txnid,
+
+                      paidAt
+
+                    }
 
                   }
 
                 }
 
-              }
+              };
 
-            })
+            }
           );
 
 
+        // ----------------------------------------------------
+        // UPDATE MONGODB
+        // ----------------------------------------------------
+
         if (
-          bulkOperations.length
+          bulkOperations.length > 0
         ) {
 
           await ordersCollection()
@@ -1236,9 +1231,9 @@ app.post(
         }
 
 
-        /*
-         * Reload paid orders.
-         */
+        // ----------------------------------------------------
+        // GET UPDATED ORDERS
+        // ----------------------------------------------------
 
         const paidOrders =
           await ordersCollection()
@@ -1248,28 +1243,21 @@ app.post(
             .toArray();
 
 
-        const totalPaid =
+        const totalAmount =
           paidOrders.reduce(
             (
               sum,
               order
             ) =>
               sum +
-              Number(order.amount),
+              Number(order.amount || 0),
             0
           );
 
 
-        /*
-         * Build booking object
-         * for email notifications.
-         */
-
         const booking = {
 
           bookingId,
-
-          finalOrderId,
 
           name:
             paidOrders[0].name,
@@ -1283,77 +1271,101 @@ app.post(
           lunchType:
             paidOrders[0].lunchType,
 
-          totalAmount:
-            totalPaid,
+          totalAmount,
 
           dayOrders:
             paidOrders,
 
-          createdAt:
-            paidOrders[0].createdAt,
-
-          paidAt,
-
           payuPaymentId:
-            mihpayid || ''
+            mihpayid || '',
+
+          payuTxnId:
+            txnid,
+
+          status:
+            'paid',
+
+          paidAt
 
         };
 
 
-        /*
-         * Seller email.
-         *
-         * This is deliberately sent AFTER
-         * successful payment.
-         */
+        // ----------------------------------------------------
+        // SELLER EMAIL
+        // ----------------------------------------------------
 
         sendOrderEmail(
           booking
-        )
-        .catch(
-          error =>
+        ).catch(
+          err =>
             console.error(
-              'Seller payment email failed:',
-              error.message
+              'Seller email failed:',
+              err.message
             )
         );
 
 
-        /*
-         * Customer receipt.
-         */
+        // ----------------------------------------------------
+        // CUSTOMER RECEIPT EMAIL
+        //
+        // No UPI link is supplied because PayU is now the
+        // only payment method.
+        // ----------------------------------------------------
 
         sendCustomerReceiptEmail(
-          booking
-        )
-        .catch(
-          error =>
+          booking,
+          null
+        ).catch(
+          err =>
             console.error(
               'Customer receipt email failed:',
-              error.message
+              err.message
             )
         );
+
+
+        console.log(
+          `PAYMENT SUCCESS: ${bookingId} | PayU ID: ${mihpayid || 'N/A'}`
+        );
+
+
+        // ----------------------------------------------------
+        // SUCCESS PAGE
+        // ----------------------------------------------------
+
+        const orderList =
+          paidOrders
+            .map(
+              order =>
+                `${order.day}: ${order.orderId}`
+            )
+            .join(', ');
 
 
         return renderResult(
+
           true,
-          'Payment Successful',
-          'Your PayU payment has been verified successfully. Your bhog booking is confirmed.',
-          finalOrderId
+
+          'Payment successful',
+
+          `Your payment has been confirmed. Your Order ID(s): ${orderList}. Booking ID: ${bookingId}.`
+
         );
 
       }
 
 
-      /*
-       * PAYMENT FAILED / CANCELLED
-       */
+      // ======================================================
+      // PAYMENT FAILED / CANCELLED
+      // ======================================================
 
       await ordersCollection()
         .updateMany(
+
           {
             bookingId
           },
+
           {
             $set: {
 
@@ -1362,18 +1374,31 @@ app.post(
 
               payuLastStatus:
                 status ||
-                'failed'
+                'failed',
+
+              payuLastUpdatedAt:
+                new Date().toISOString()
 
             }
 
           }
+
         );
 
 
+      console.log(
+        `PAYMENT NOT SUCCESSFUL: ${bookingId} | Status: ${status || 'unknown'}`
+      );
+
+
       return renderResult(
+
         false,
-        'Payment Not Completed',
-        `Your payment was not completed (${status || 'unknown'}). You can return to the UTSAV website and try again.`
+
+        'Payment not completed',
+
+        `Your payment was not successful (${status || 'unknown'}). No final Order ID has been generated. You may return to the booking page and try again.`
+
       );
 
 
@@ -1385,22 +1410,15 @@ app.post(
       );
 
 
-      return res
-        .status(500)
-        .send(`
-          <h2>
-            Payment processing error
-          </h2>
+      return renderResult(
 
-          <p>
-            Please contact the UTSAV help desk
-            if money was deducted.
-          </p>
+        false,
 
-          <a href="/">
-            Return to UTSAV
-          </a>
-        `);
+        'Payment processing error',
+
+        'There was an error while processing the payment response. If money was deducted, please contact the administrator with your PayU transaction ID.'
+
+      );
 
     }
 
@@ -1408,11 +1426,9 @@ app.post(
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN — ORDERS
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN: GET ALL ORDERS
+// ============================================================
 
 app.get(
   '/api/admin/orders',
@@ -1425,8 +1441,7 @@ app.get(
         await ordersCollection()
           .find({})
           .sort({
-            createdAt:
-              -1
+            createdAt: -1
           })
           .toArray();
 
@@ -1435,6 +1450,7 @@ app.get(
         orders
       });
 
+
     } catch (error) {
 
       console.error(
@@ -1442,12 +1458,10 @@ app.get(
         error
       );
 
-      res
-        .status(500)
-        .json({
-          error:
-            'Could not load orders.'
-        });
+      res.status(500).json({
+        error:
+          'Could not load orders.'
+      });
 
     }
 
@@ -1455,11 +1469,9 @@ app.get(
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN — STATS
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN: STATS
+// ============================================================
 
 app.get(
   '/api/admin/stats',
@@ -1494,7 +1506,7 @@ app.get(
             order
           ) =>
             sum +
-            Number(order.qty),
+            Number(order.qty || 0),
           0
         );
 
@@ -1506,43 +1518,28 @@ app.get(
             order
           ) =>
             sum +
-            Number(order.amount),
+            Number(order.amount || 0),
           0
         );
 
 
+      const paidOrders =
+        orders.filter(
+          order =>
+            order.status === 'paid'
+        );
+
+
       const paidAmount =
-        orders
-          .filter(
-            order =>
-              order.status === 'paid'
-          )
-          .reduce(
-            (
-              sum,
-              order
-            ) =>
-              sum +
-              Number(order.amount),
-            0
-          );
-
-
-      const pendingAmount =
-        orders
-          .filter(
-            order =>
-              order.status !== 'paid'
-          )
-          .reduce(
-            (
-              sum,
-              order
-            ) =>
-              sum +
-              Number(order.amount),
-            0
-          );
+        paidOrders.reduce(
+          (
+            sum,
+            order
+          ) =>
+            sum +
+            Number(order.amount || 0),
+          0
+        );
 
 
       res.json({
@@ -1555,25 +1552,22 @@ app.get(
 
         totalAmount,
 
-        paidAmount,
-
-        pendingAmount
+        paidAmount
 
       });
+
 
     } catch (error) {
 
       console.error(
-        'Stats error:',
+        'Admin stats error:',
         error
       );
 
-      res
-        .status(500)
-        .json({
-          error:
-            'Could not load statistics.'
-        });
+      res.status(500).json({
+        error:
+          'Could not load statistics.'
+      });
 
     }
 
@@ -1581,279 +1575,350 @@ app.get(
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN — MARK SINGLE ORDER
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN: CHANGE INDIVIDUAL ORDER STATUS
+// ============================================================
+//
+// Kept for admin compatibility.
+//
+// Normally PayU should control paid status automatically.
+// ============================================================
 
 app.post(
   '/api/admin/orders/:orderId/status',
   requireAdmin,
   async (req, res) => {
 
-    const {
-      orderId
-    } = req.params;
+    try {
+
+      const {
+        orderId
+      } = req.params;
 
 
-    const {
-      status
-    } = req.body || {};
+      const {
+        status
+      } = req.body || {};
 
 
-    if (
-      ![
-        'pending',
-        'paid'
-      ].includes(status)
-    ) {
+      if (
+        ![
+          'pending',
+          'paid'
+        ].includes(status)
+      ) {
 
-      return res
-        .status(400)
-        .json({
+        return res.status(400).json({
+
           error:
             'Status must be "pending" or "paid".'
+
         });
 
-    }
+      }
 
 
-    const result =
-      await ordersCollection()
-        .updateOne(
-          {
-            orderId
-          },
-          {
-            $set: {
+      const result =
+        await ordersCollection()
+          .updateOne(
 
-              status,
+            {
+              orderId
+            },
 
-              paymentStatus:
-                status === 'paid'
-                  ? 'paid'
-                  : 'pending'
+            {
+              $set: {
+                status,
+                paymentStatus:
+                  status === 'paid'
+                    ? 'paid'
+                    : 'pending'
+              }
 
             }
 
-          }
-        );
+          );
 
 
-    if (
-      result.matchedCount === 0
-    ) {
+      if (
+        result.matchedCount === 0
+      ) {
 
-      return res
-        .status(404)
-        .json({
+        return res.status(404).json({
+
           error:
             'Order not found.'
+
         });
 
+      }
+
+
+      res.json({
+        ok: true
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        'Admin order status error:',
+        error
+      );
+
+      res.status(500).json({
+        error:
+          'Could not update order status.'
+      });
+
     }
-
-
-    res.json({
-      ok:true
-    });
 
   }
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN — MARK WHOLE BOOKING
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN: CHANGE WHOLE BOOKING STATUS
+// ============================================================
 
 app.post(
   '/api/admin/bookings/:bookingId/status',
   requireAdmin,
   async (req, res) => {
 
-    const {
-      bookingId
-    } = req.params;
+    try {
+
+      const {
+        bookingId
+      } = req.params;
 
 
-    const {
-      status
-    } = req.body || {};
+      const {
+        status
+      } = req.body || {};
 
 
-    if (
-      ![
-        'pending',
-        'paid'
-      ].includes(status)
-    ) {
+      if (
+        ![
+          'pending',
+          'paid'
+        ].includes(status)
+      ) {
 
-      return res
-        .status(400)
-        .json({
+        return res.status(400).json({
+
           error:
             'Status must be "pending" or "paid".'
+
         });
 
-    }
+      }
 
 
-    const result =
-      await ordersCollection()
-        .updateMany(
-          {
-            bookingId
-          },
-          {
-            $set: {
+      const result =
+        await ordersCollection()
+          .updateMany(
 
-              status,
+            {
+              bookingId
+            },
 
-              paymentStatus:
-                status === 'paid'
-                  ? 'paid'
-                  : 'pending'
+            {
+              $set: {
+
+                status,
+
+                paymentStatus:
+                  status === 'paid'
+                    ? 'paid'
+                    : 'pending'
+
+              }
 
             }
 
-          }
-        );
+          );
 
 
-    if (
-      result.matchedCount === 0
-    ) {
+      if (
+        result.matchedCount === 0
+      ) {
 
-      return res
-        .status(404)
-        .json({
+        return res.status(404).json({
+
           error:
             'Booking not found.'
+
         });
 
+      }
+
+
+      res.json({
+
+        ok: true,
+
+        updated:
+          result.matchedCount
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        'Admin booking status error:',
+        error
+      );
+
+      res.status(500).json({
+
+        error:
+          'Could not update booking status.'
+
+      });
+
     }
-
-
-    res.json({
-
-      ok:true,
-
-      updated:
-        result.matchedCount
-
-    });
 
   }
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN — DELETE BOOKING
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN: DELETE ONE BOOKING
+// ============================================================
 
 app.delete(
   '/api/admin/bookings/:bookingId',
   requireAdmin,
   async (req, res) => {
 
-    const {
-      bookingId
-    } = req.params;
+    try {
+
+      const {
+        bookingId
+      } = req.params;
 
 
-    const result =
-      await ordersCollection()
-        .deleteMany({
-          bookingId
-        });
+      const result =
+        await ordersCollection()
+          .deleteMany({
+            bookingId
+          });
 
 
-    if (
-      result.deletedCount === 0
-    ) {
+      if (
+        result.deletedCount === 0
+      ) {
 
-      return res
-        .status(404)
-        .json({
+        return res.status(404).json({
+
           error:
             'Booking not found.'
+
         });
 
+      }
+
+
+      res.json({
+
+        ok: true,
+
+        deletedCount:
+          result.deletedCount
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        'Delete booking error:',
+        error
+      );
+
+      res.status(500).json({
+
+        error:
+          'Could not delete booking.'
+
+      });
+
     }
-
-
-    res.json({
-
-      ok:true,
-
-      deletedCount:
-        result.deletedCount
-
-    });
 
   }
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN — DELETE ALL
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN: DELETE EVERYTHING
+// ============================================================
 
 app.delete(
   '/api/admin/orders',
   requireAdmin,
   async (req, res) => {
 
-    const {
-      confirm
-    } = req.body || {};
+    try {
+
+      const {
+        confirm
+      } = req.body || {};
 
 
-    if (
-      confirm !==
-      'DELETE ALL'
-    ) {
+      if (
+        confirm !== 'DELETE ALL'
+      ) {
 
-      return res
-        .status(400)
-        .json({
+        return res.status(400).json({
+
           error:
             'Confirmation phrase did not match. Nothing was deleted.'
+
         });
 
+      }
+
+
+      const result =
+        await ordersCollection()
+          .deleteMany({});
+
+
+      res.json({
+
+        ok: true,
+
+        deletedCount:
+          result.deletedCount
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        'Delete all orders error:',
+        error
+      );
+
+      res.status(500).json({
+
+        error:
+          'Could not delete orders.'
+
+      });
+
     }
-
-
-    const result =
-      await ordersCollection()
-        .deleteMany({});
-
-
-    res.json({
-
-      ok:true,
-
-      deletedCount:
-        result.deletedCount
-
-    });
 
   }
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN — CSV EXPORT
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// ADMIN: EXPORT CSV
+// ============================================================
 
 app.get(
   '/api/admin/orders/export',
@@ -1866,19 +1931,16 @@ app.get(
         await ordersCollection()
           .find({})
           .sort({
-            createdAt:
-              -1
+            createdAt: -1
           })
           .toArray();
 
 
       const header = [
 
-        'Final Order ID',
+        'Order ID',
 
-        'Day Order ID',
-
-        'Internal Booking Reference',
+        'Booking ID',
 
         'Day',
 
@@ -1902,9 +1964,9 @@ app.get(
 
         'PayU Payment ID',
 
-        'Paid At',
+        'Created At',
 
-        'Created At'
+        'Paid At'
 
       ];
 
@@ -1913,53 +1975,35 @@ app.get(
         orders.map(
           order => [
 
-            order.finalOrderId ||
-              '',
+            order.orderId || '',
 
-            order.orderId ||
-              '',
+            order.bookingId || '',
 
-            order.bookingId ||
-              '',
+            order.day || '',
 
-            order.day ||
-              '',
+            order.lunchType || '',
 
-            order.lunchType ||
-              '',
+            order.name || '',
 
-            order.name ||
-              '',
+            order.phone || '',
 
-            order.phone ||
-              '',
+            order.email || '',
 
-            order.email ||
-              '',
+            order.qty || '',
 
-            order.qty ||
-              '',
+            order.amount || '',
 
-            order.amount ||
-              '',
+            order.status || '',
 
-            order.status ||
-              '',
+            order.paymentStatus || '',
 
-            order.paymentStatus ||
-              '',
+            order.payuTxnId || '',
 
-            order.payuTxnId ||
-              '',
+            order.payuPaymentId || '',
 
-            order.payuPaymentId ||
-              '',
+            order.createdAt || '',
 
-            order.paidAt ||
-              '',
-
-            order.createdAt ||
-              ''
+            order.paidAt || ''
 
           ]
         );
@@ -1967,9 +2011,13 @@ app.get(
 
       const csv =
         [
+
           header,
+
           ...rows
+
         ]
+
           .map(
             row =>
               row
@@ -1986,6 +2034,7 @@ app.get(
                 )
                 .join(',')
           )
+
           .join('\n');
 
 
@@ -2003,6 +2052,7 @@ app.get(
 
       res.send(csv);
 
+
     } catch (error) {
 
       console.error(
@@ -2010,11 +2060,12 @@ app.get(
         error
       );
 
-      res
-        .status(500)
-        .send(
+      res.status(500).json({
+
+        error:
           'Could not export orders.'
-        );
+
+      });
 
     }
 
@@ -2022,15 +2073,31 @@ app.get(
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| SERVER
-|--------------------------------------------------------------------------
-*/
+// ============================================================
+// 404 FOR API ROUTES
+// ============================================================
+
+app.use(
+  '/api',
+  (req, res) => {
+
+    res.status(404).json({
+
+      error:
+        'API endpoint not found.'
+
+    });
+
+  }
+);
+
+
+// ============================================================
+// START SERVER
+// ============================================================
 
 const PORT =
-  process.env.PORT ||
-  3000;
+  process.env.PORT || 3000;
 
 
 connectDB()
@@ -2045,8 +2112,15 @@ connectDB()
           `Bhog backend running on port ${PORT}`
         );
 
-      }
+        console.log(
+          `Payment gateway: PayU`
+        );
 
+        console.log(
+          `Booking days: ${VALID_DAYS.join(', ')}`
+        );
+
+      }
     );
 
   })
@@ -2055,15 +2129,14 @@ connectDB()
     error => {
 
       console.error(
-        'Could not connect to MongoDB Atlas.'
+        'Could not connect to MongoDB Atlas. Server not started.'
       );
 
       console.error(
-        error.message
+        error
       );
 
       process.exit(1);
 
     }
   );
-
