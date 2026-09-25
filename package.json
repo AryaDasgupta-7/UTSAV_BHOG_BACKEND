@@ -1,18 +1,21 @@
-{
+<pre><code>{
   "name": "durga-pujo-bhog-backend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Backend for Durga Pujo bhog plate orders: collects orders, stores them, emails the seller, and gives an admin dashboard with CSV export.",
+  "description": "UTSAV Socio-Cultural Trust Durga Pujo Bhog Booking backend with MongoDB and PayU payments.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "cloudinary": "^2.11.0",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^4.22.2",
     "mongodb": "^7.6.0",
-    "multer": "^2.4.0"
+    "nodemailer": "^6.10.1"
   }
 }
+</code></pre>
