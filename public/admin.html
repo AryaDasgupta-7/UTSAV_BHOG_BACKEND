@@ -55,7 +55,7 @@ body{
 
 .wrap{
   width:100%;
-  max-width:1000px;
+  max-width:1100px;
 }
 
 h1{
@@ -291,7 +291,7 @@ button.ghost-danger:hover{
 
 .day-table{
   width:100%;
-  min-width:760px;
+  min-width:930px;
   border-collapse:collapse;
   font-size:12.5px;
 }
@@ -356,6 +356,104 @@ button.ghost-danger:hover{
   font-style:italic;
 }
 
+/* ======================================================
+   PAYMENT PROOF
+====================================================== */
+
+.proof-btn{
+  background:var(--teal);
+  color:white;
+  border:none;
+  padding:5px 9px;
+  border-radius:7px;
+  font-size:11px;
+  cursor:pointer;
+}
+
+.proof-btn:hover{
+  background:#163a30;
+}
+
+.no-proof{
+  color:#A5622F;
+  font-size:11px;
+  font-style:italic;
+}
+
+.proof-thumbnail{
+  width:44px;
+  height:44px;
+  object-fit:cover;
+  border-radius:6px;
+  border:1px solid var(--line);
+  vertical-align:middle;
+  margin-right:5px;
+  cursor:pointer;
+}
+
+/* ======================================================
+   PAYMENT PROOF MODAL
+====================================================== */
+
+.proof-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:20px;
+  z-index:9999;
+}
+
+.proof-modal-content{
+  position:relative;
+  background:var(--white);
+  border-radius:14px;
+  padding:18px;
+  max-width:900px;
+  max-height:92vh;
+  overflow:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+}
+
+.proof-modal-content img{
+  display:block;
+  max-width:100%;
+  max-height:75vh;
+  width:auto;
+  height:auto;
+  margin:auto;
+  border-radius:8px;
+}
+
+.proof-modal-title{
+  font-family:'Fraunces',serif;
+  color:var(--red-dark);
+  font-size:18px;
+  margin-bottom:12px;
+}
+
+.proof-close{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:var(--red);
+  color:white;
+  border:none;
+  font-size:20px;
+  line-height:34px;
+  padding:0;
+  z-index:2;
+}
+
+.proof-close:hover{
+  background:var(--red-dark);
+}
+
 @media (max-width:640px){
 
   body{
@@ -408,204 +506,240 @@ button.ghost-danger:hover{
 
 <div class="wrap">
 
-  <h1>Seller dashboard</h1>
+<h1>Seller dashboard</h1>
 
-  <p class="sub">
-    Manage and review every Durga Pujo bhog booking and PayU payment.
-  </p>
+<p class="sub">
+Manage and review every Durga Pujo bhog booking and PayU payment.
+</p>
 
 
-  <!-- =====================================================
-       LOGIN
-  ====================================================== -->
+<!-- =====================================================
+     LOGIN
+====================================================== -->
 
-  <div
-    class="card"
-    id="loginCard"
-  >
+<div
+  class="card"
+  id="loginCard"
+>
 
-    <label for="apiKeyInput">
-      Admin API key
-    </label>
+<label for="apiKeyInput">
+Admin API key
+</label>
 
-    <input
-      type="password"
-      id="apiKeyInput"
-      placeholder="Paste your ADMIN_API_KEY"
-    >
+<input
+  type="password"
+  id="apiKeyInput"
+  placeholder="Paste your ADMIN_API_KEY"
+>
 
-    <div style="margin-top:12px;">
+<div style="margin-top:12px;">
 
-      <button id="loginBtn">
-        View dashboard
-      </button>
+<button id="loginBtn">
+View dashboard
+</button>
 
-    </div>
+</div>
 
-    <div
-      class="err"
-      id="loginErr"
-    ></div>
+<div
+  class="err"
+  id="loginErr"
+></div>
 
-  </div>
+</div>
 
 
-  <!-- =====================================================
-       DASHBOARD
-  ====================================================== -->
+<!-- =====================================================
+     DASHBOARD
+====================================================== -->
 
-  <div
-    id="dashboard"
-    class="hidden"
-  >
+<div
+  id="dashboard"
+  class="hidden"
+>
 
 
-    <!-- =================================================
-         STATISTICS
-    ================================================== -->
+<!-- =================================================
+     STATISTICS
+================================================== -->
 
-    <div class="card">
+<div class="card">
 
-      <div class="stat-grid">
+<div class="stat-grid">
 
-        <div class="stat">
+<div class="stat">
 
-          <b id="statBookings">
-            0
-          </b>
+<b id="statBookings">
+0
+</b>
 
-          <span>
-            Total bookings
-          </span>
+<span>
+Total bookings
+</span>
 
-        </div>
+</div>
 
 
-        <div class="stat">
+<div class="stat">
 
-          <b id="statOrders">
-            0
-          </b>
+<b id="statOrders">
+0
+</b>
 
-          <span>
-            Day-orders
-          </span>
+<span>
+Day-orders
+</span>
 
-        </div>
+</div>
 
 
-        <div class="stat">
+<div class="stat">
 
-          <b id="statPlates">
-            0
-          </b>
+<b id="statPlates">
+0
+</b>
 
-          <span>
-            Total plates
-          </span>
+<span>
+Total plates
+</span>
 
-        </div>
+</div>
 
 
-        <div class="stat">
+<div class="stat">
 
-          <b id="statAmount">
-            ₹0
-          </b>
+<b id="statAmount">
+₹0
+</b>
 
-          <span>
-            Amount expected
-          </span>
+<span>
+Amount expected
+</span>
 
-        </div>
+</div>
 
 
-        <div class="stat">
+<div class="stat">
 
-          <b id="statPaid">
-            ₹0
-          </b>
+<b id="statPaid">
+₹0
+</b>
 
-          <span>
-            Amount confirmed paid
-          </span>
+<span>
+Amount confirmed paid
+</span>
 
-        </div>
+</div>
 
-      </div>
+</div>
 
-    </div>
+</div>
 
 
-    <!-- =================================================
-         BOOKINGS
-    ================================================== -->
+<!-- =================================================
+     BOOKINGS
+================================================== -->
 
-    <div class="card">
+<div class="card">
 
-      <div class="toolbar">
+<div class="toolbar">
 
-        <h2
-          style="
-            font-family:'Fraunces',serif;
-            font-size:18px;
-            margin:0;
-            color:var(--red-dark);
-          "
-        >
-          Bookings
-        </h2>
+<h2
+style="
+font-family:'Fraunces',serif;
+font-size:18px;
+margin:0;
+color:var(--red-dark);
+"
+>
+Bookings
+</h2>
 
 
-        <div
-          style="
-            display:flex;
-            gap:10px;
-            flex-wrap:wrap;
-          "
-        >
+<div
+style="
+display:flex;
+gap:10px;
+flex-wrap:wrap;
+"
+>
 
-          <button
-            class="ghost"
-            id="refreshBtn"
-          >
-            Refresh
-          </button>
+<button
+class="ghost"
+id="refreshBtn"
+>
+Refresh
+</button>
 
 
-          <button
-            id="exportBtn"
-          >
-            Export CSV
-          </button>
+<button
+id="exportBtn"
+>
+Export CSV
+</button>
 
 
-          <button
-            class="danger"
-            id="resetAllBtn"
-          >
-            Reset all orders
-          </button>
+<button
+class="danger"
+id="resetAllBtn"
+>
+Reset all orders
+</button>
 
-        </div>
+</div>
 
-      </div>
+</div>
 
 
-      <div
-        class="orders-wrap"
-        id="ordersContainer"
-      ></div>
+<div
+class="orders-wrap"
+id="ordersContainer"
+></div>
 
 
-      <div
-        class="err"
-        id="ordersErr"
-      ></div>
+<div
+class="err"
+id="ordersErr"
+></div>
 
-    </div>
+</div>
 
-  </div>
+</div>
+
+</div>
+
+
+<!-- =====================================================
+     PAYMENT PROOF MODAL
+====================================================== -->
+
+<div
+  id="proofModal"
+  class="proof-modal hidden"
+>
+
+<div class="proof-modal-content">
+
+<button
+  class="proof-close"
+  id="proofCloseBtn"
+>
+×
+</button>
+
+<div
+  class="proof-modal-title"
+  id="proofModalTitle"
+>
+Payment Proof
+</div>
+
+<img
+  id="proofModalImage"
+  src=""
+  alt="Payment proof"
+>
+
+</div>
 
 </div>
 
@@ -614,1757 +748,2235 @@ button.ghost-danger:hover{
 
 (function(){
 
-  /*
-   * ======================================================
-   * ADMIN STATE
-   * ======================================================
-   */
 
-  let apiKey =
-    sessionStorage.getItem(
-      'bhogAdminKey'
-    ) || '';
+/* ======================================================
+   ADMIN STATE
+====================================================== */
 
+let apiKey =
+sessionStorage.getItem(
+'bhogAdminKey'
+) || '';
 
-  /*
-   * ======================================================
-   * AUTH HEADERS
-   * ======================================================
-   */
 
-  function authHeaders(){
+/* ======================================================
+   AUTH HEADERS
+====================================================== */
 
-    return {
+function authHeaders(){
 
-      'x-api-key':
-        apiKey,
+return {
 
-      'Content-Type':
-        'application/json'
+'x-api-key':
+apiKey,
 
-    };
+'Content-Type':
+'application/json'
 
-  }
+};
 
+}
 
-  /*
-   * ======================================================
-   * INITIAL LOGIN / DASHBOARD LOAD
-   * ======================================================
-   */
 
-  async function tryLoad(){
+/* ======================================================
+   PAYMENT PROOF HELPERS
+====================================================== */
 
-    const loginErr =
-      document.getElementById(
-        'loginErr'
-      );
+/*
+ * Supports multiple possible backend field names.
+ *
+ * Your backend can return any one of these:
+ *
+ * paymentScreenshot
+ * paymentScreenshotUrl
+ * paymentProof
+ * paymentProofUrl
+ * screenshotUrl
+ * proofOfPayment
+ */
 
-    loginErr.textContent = '';
+function getPaymentProof(order){
 
+if(!order){
+return null;
+}
 
-    try{
 
-      const res =
-        await fetch(
-          '/api/admin/stats',
-          {
-            headers:
-              authHeaders()
-          }
-        );
+/* Direct string fields */
 
+const possibleFields = [
 
-      if(!res.ok){
+'paymentScreenshot',
 
-        loginErr.textContent =
-          'Incorrect API key.';
+'paymentScreenshotUrl',
 
-        return false;
+'paymentProof',
 
-      }
+'paymentProofUrl',
 
+'screenshotUrl',
 
-      sessionStorage.setItem(
-        'bhogAdminKey',
-        apiKey
-      );
+'proofOfPayment',
 
+'proofUrl',
 
-      document
-        .getElementById(
-          'loginCard'
-        )
-        .classList
-        .add('hidden');
+'paymentProofImage',
 
+'paymentScreenshotImage'
 
-      document
-        .getElementById(
-          'dashboard'
-        )
-        .classList
-        .remove('hidden');
+];
 
 
-      await loadStats();
+for(
+const field
+of possibleFields
+){
 
-      await loadOrders();
+const value =
+order[field];
 
+if(
+typeof value === 'string' &&
+value.trim()
+){
 
-      return true;
+return value.trim();
 
+}
 
-    }catch(e){
+}
 
-      console.error(e);
 
-      loginErr.textContent =
-        'Could not reach the server.';
+/* Sometimes backend may return an object */
 
-      return false;
+const possibleObjects = [
 
-    }
+order.paymentScreenshot,
 
-  }
+order.paymentProof,
 
+order.proofOfPayment
 
-  /*
-   * ======================================================
-   * LOGIN BUTTON
-   * ======================================================
-   */
+];
 
-  document
-    .getElementById(
-      'loginBtn'
-    )
-    .addEventListener(
-      'click',
-      function(){
 
-        apiKey =
-          document
-            .getElementById(
-              'apiKeyInput'
-            )
-            .value
-            .trim();
+for(
+const obj
+of possibleObjects
+){
 
+if(
+obj &&
+typeof obj === 'object'
+){
 
-        if(!apiKey){
+if(
+typeof obj.url === 'string' &&
+obj.url.trim()
+){
 
-          document
-            .getElementById(
-              'loginErr'
-            )
-            .textContent =
-              'Enter your admin API key.';
+return obj.url.trim();
 
-          return;
+}
 
-        }
+if(
+typeof obj.secure_url === 'string' &&
+obj.secure_url.trim()
+){
 
+return obj.secure_url.trim();
 
-        tryLoad();
+}
 
-      }
-    );
+if(
+typeof obj.path === 'string' &&
+obj.path.trim()
+){
 
+return obj.path.trim();
 
-  /*
-   * ======================================================
-   * AUTO LOGIN
-   * ======================================================
-   */
+}
 
-  if(apiKey){
+if(
+typeof obj.data === 'string' &&
+obj.data.trim()
+){
 
-    tryLoad();
+return obj.data.trim();
 
-  }
+}
 
+}
 
-  /*
-   * ======================================================
-   * LOAD STATISTICS
-   * ======================================================
-   */
+}
 
-  async function loadStats(){
 
-    try{
+return null;
 
-      const res =
-        await fetch(
-          '/api/admin/stats',
-          {
-            headers:
-              authHeaders()
-          }
-        );
+}
 
 
-      if(!res.ok){
+/* ======================================================
+   MAKE IMAGE URL
+====================================================== */
 
-        return;
+function getProofImageUrl(
+proof
+){
 
-      }
+if(!proof){
+return null;
+}
 
 
-      const s =
-        await res.json();
+/*
+ * Data URI:
+ * data:image/png;base64,...
+ */
 
+if(
+proof.startsWith(
+'data:image/'
+)
+){
 
-      document
-        .getElementById(
-          'statBookings'
-        )
-        .textContent =
-          Number(
-            s.totalBookings || 0
-          );
+return proof;
 
+}
 
-      document
-        .getElementById(
-          'statOrders'
-        )
-        .textContent =
-          Number(
-            s.totalOrders || 0
-          );
 
+/*
+ * Absolute URL:
+ * https://...
+ */
 
-      document
-        .getElementById(
-          'statPlates'
-        )
-        .textContent =
-          Number(
-            s.totalPlates || 0
-          );
+if(
+proof.startsWith(
+'http://'
+) ||
+proof.startsWith(
+'https://'
+)
+){
 
+return proof;
 
-      document
-        .getElementById(
-          'statAmount'
-        )
-        .textContent =
-          '₹' +
-          Number(
-            s.totalAmount || 0
-          ).toLocaleString(
-            'en-IN'
-          );
+}
 
 
-      document
-        .getElementById(
-          'statPaid'
-        )
-        .textContent =
-          '₹' +
-          Number(
-            s.paidAmount || 0
-          ).toLocaleString(
-            'en-IN'
-          );
+/*
+ * Already a relative path:
+ * /uploads/payment-proof.png
+ */
 
+if(
+proof.startsWith('/')
+){
 
-    }catch(e){
+return proof;
 
-      console.error(
-        'Stats error:',
-        e
-      );
+}
 
-    }
 
-  }
+/*
+ * If backend returns a relative
+ * uploads path without /
+ */
 
+return '/' + proof;
 
-  /*
-   * ======================================================
-   * HTML ESCAPING
-   * ======================================================
-   */
+}
 
-  function escapeHtml(str){
 
-    return String(
-      str == null
-        ? ''
-        : str
-    ).replace(
-      /[&<>"']/g,
-      function(s){
+/* ======================================================
+   SHOW PAYMENT PROOF
+====================================================== */
 
-        return {
+function showPaymentProof(
+proof,
+orderId
+){
 
-          '&':
-            '&amp;',
+const imageUrl =
+getProofImageUrl(
+proof
+);
 
-          '<':
-            '&lt;',
+if(!imageUrl){
 
-          '>':
-            '&gt;',
+alert(
+'No payment proof was uploaded for this order.'
+);
 
-          '"':
-            '&quot;',
+return;
 
-          "'":
-            '&#39;'
+}
 
-        }[s];
+const modal =
+document.getElementById(
+'proofModal'
+);
 
-      }
-    );
+const image =
+document.getElementById(
+'proofModalImage'
+);
 
-  }
+const title =
+document.getElementById(
+'proofModalTitle'
+);
 
+title.textContent =
+'Payment Proof' +
+(
+orderId
+? ' — ' + orderId
+: ''
+);
 
-  /*
-   * ======================================================
-   * GROUP BOOKINGS
-   * ======================================================
-   */
+image.src =
+imageUrl;
 
-  function groupByBooking(
-    orders
-  ){
+modal.classList.remove(
+'hidden'
+);
 
-    const map =
-      new Map();
+}
 
 
-    for(
-      const order
-      of orders
-    ){
+/* ======================================================
+   CLOSE PAYMENT PROOF
+====================================================== */
 
-      const key =
-        order.bookingId ||
-        order.finalBookingId ||
-        order.orderId ||
-        (
-          order._id ||
-          Math.random()
-        );
+function closePaymentProof(){
 
+const modal =
+document.getElementById(
+'proofModal'
+);
 
-      if(
-        !map.has(key)
-      ){
+const image =
+document.getElementById(
+'proofModalImage'
+);
 
-        map.set(
-          key,
-          []
-        );
+modal.classList.add(
+'hidden'
+);
 
-      }
+image.src =
+'';
 
+}
 
-      map
-        .get(key)
-        .push(order);
 
-    }
+document
+.getElementById(
+'proofCloseBtn'
+)
+.addEventListener(
+'click',
+closePaymentProof
+);
 
 
-    return Array
-      .from(
-        map.values()
-      );
+document
+.getElementById(
+'proofModal'
+)
+.addEventListener(
+'click',
+function(e){
 
-  }
+if(
+e.target === this
+){
 
+closePaymentProof();
 
-  /*
-   * ======================================================
-   * PAYMENT STATUS
-   * ======================================================
-   */
+}
 
-  function getGroupPaymentStatus(
-    group
-  ){
+});
 
-    const paid =
-      group.filter(
-        order =>
-          order.status === 'paid' ||
-          order.paymentStatus === 'paid' ||
-          order.paymentStatus === 'success'
-      ).length;
 
+document.addEventListener(
+'keydown',
+function(e){
 
-    if(
-      paid === group.length
-    ){
+if(
+e.key === 'Escape'
+){
 
-      return {
+closePaymentProof();
 
-        label:
-          'PAID',
+}
 
-        className:
-          'status-paid'
+});
 
-      };
 
-    }
+/* ======================================================
+   INITIAL LOGIN / DASHBOARD LOAD
+====================================================== */
 
+async function tryLoad(){
 
-    if(
-      paid === 0
-    ){
+const loginErr =
+document.getElementById(
+'loginErr'
+);
 
-      const failed =
-        group.some(
-          order =>
-            order.paymentStatus === 'failed' ||
-            order.status === 'failed'
-        );
+loginErr.textContent = '';
 
 
-      if(failed){
+try{
 
-        return {
+const res =
+await fetch(
+'/api/admin/stats',
+{
+headers:
+authHeaders()
+}
+);
 
-          label:
-            'PAYMENT FAILED',
 
-          className:
-            'status-failed'
+if(!res.ok){
 
-        };
+loginErr.textContent =
+'Incorrect API key.';
 
-      }
+return false;
 
+}
 
-      return {
 
-        label:
-          'PAYMENT PENDING',
+sessionStorage.setItem(
+'bhogAdminKey',
+apiKey
+);
 
-        className:
-          'status-pending'
 
-      };
+document
+.getElementById(
+'loginCard'
+)
+.classList
+.add('hidden');
 
-    }
 
+document
+.getElementById(
+'dashboard'
+)
+.classList
+.remove('hidden');
 
-    return {
 
-      label:
-        'PARTIALLY PAID',
+await loadStats();
 
-      className:
-        'status-partial'
+await loadOrders();
 
-    };
 
-  }
+return true;
 
 
-  /*
-   * ======================================================
-   * RENDER BOOKING GROUP
-   * ======================================================
-   */
+}catch(e){
 
-  function renderBookingGroup(
-    group
-  ){
+console.error(e);
 
-    const first =
-      group[0];
+loginErr.textContent =
+'Could not reach the server.';
 
+return false;
 
-    const totalAmount =
-      group.reduce(
-        function(
-          sum,
-          order
-        ){
+}
 
-          return (
-            sum +
-            Number(
-              order.amount || 0
-            )
-          );
+}
 
-        },
-        0
-      );
 
+/* ======================================================
+   LOGIN BUTTON
+====================================================== */
 
-    const totalPlates =
-      group.reduce(
-        function(
-          sum,
-          order
-        ){
+document
+.getElementById(
+'loginBtn'
+)
+.addEventListener(
+'click',
+function(){
 
-          return (
-            sum +
-            Number(
-              order.qty || 0
-            )
-          );
+apiKey =
+document
+.getElementById(
+'apiKeyInput'
+)
+.value
+.trim();
 
-        },
-        0
-      );
 
+if(!apiKey){
 
-    const payment =
-      getGroupPaymentStatus(
-        group
-      );
+document
+.getElementById(
+'loginErr'
+)
+.textContent =
+'Enter your admin API key.';
 
+return;
 
-    const placed =
-      first.createdAt
-        ? new Date(
-            first.createdAt
-          ).toLocaleString(
-            'en-IN'
-          )
-        : '';
+}
 
 
-    const finalBookingId =
-      first.finalBookingId ||
-      first.bookingFinalId ||
-      first.bookingOrderId ||
-      (
-        group.find(
-          order =>
-            order.finalBookingId ||
-            order.bookingFinalId ||
-            order.bookingOrderId
-        ) || {}
-      ).finalBookingId ||
-      null;
+tryLoad();
 
+}
+);
 
-    const finalOrderId =
-      finalBookingId ||
-      first.finalOrderId ||
-      (
-        group.find(
-          order =>
-            order.finalOrderId
-        ) || {}
-      ).finalOrderId ||
-      null;
 
+/* ======================================================
+   AUTO LOGIN
+====================================================== */
 
-    const payuTxnId =
-      first.payuTxnId ||
-      first.payuTransactionId ||
-      (
-        group.find(
-          order =>
-            order.payuTxnId ||
-            order.payuTransactionId
-        ) || {}
-      ).payuTxnId ||
-      null;
+if(apiKey){
 
+tryLoad();
 
-    const payuPaymentId =
-      first.payuPaymentId ||
-      first.mihpayid ||
-      first.payuId ||
-      (
-        group.find(
-          order =>
-            order.payuPaymentId ||
-            order.mihpayid ||
-            order.payuId
-        ) || {}
-      ).payuPaymentId ||
-      null;
+}
 
 
-    const wrap =
-      document.createElement(
-        'div'
-      );
+/* ======================================================
+   LOAD STATISTICS
+====================================================== */
 
+async function loadStats(){
 
-    wrap.className =
-      'booking-group';
+try{
 
+const res =
+await fetch(
+'/api/admin/stats',
+{
+headers:
+authHeaders()
+}
+);
 
-    wrap.innerHTML = `
 
-      <div class="booking-header">
+if(!res.ok){
 
-        <div class="binfo">
+return;
 
-          <b>
+}
 
-            ${
-              finalOrderId
-                ? escapeHtml(
-                    finalOrderId
-                  )
-                : `
-                  <span class="no-order-id">
-                    Order ID generated after successful payment
-                  </span>
-                `
-            }
 
-          </b>
+const s =
+await res.json();
 
 
-          <div class="booking-meta">
+document
+.getElementById(
+'statBookings'
+)
+.textContent =
+Number(
+s.totalBookings || 0
+);
 
-            ${escapeHtml(
-              first.name || ''
-            )}
 
-            ·
+document
+.getElementById(
+'statOrders'
+)
+.textContent =
+Number(
+s.totalOrders || 0
+);
 
-            ${escapeHtml(
-              first.phone || ''
-            )}
 
-            ·
+document
+.getElementById(
+'statPlates'
+)
+.textContent =
+Number(
+s.totalPlates || 0
+);
 
-            ${escapeHtml(
-              first.email || ''
-            )}
 
-          </div>
+document
+.getElementById(
+'statAmount'
+)
+.textContent =
+'₹' +
+Number(
+s.totalAmount || 0
+).toLocaleString(
+'en-IN'
+);
 
 
-          <div class="booking-meta">
+document
+.getElementById(
+'statPaid'
+)
+.textContent =
+'₹' +
+Number(
+s.paidAmount || 0
+).toLocaleString(
+'en-IN'
+);
 
-            ${escapeHtml(
-              first.lunchType || ''
-            )}
 
-            ·
+}catch(e){
 
-            Placed ${escapeHtml(
-              placed
-            )}
+console.error(
+'Stats error:',
+e
+);
 
-          </div>
+}
 
+}
 
-          <div
-            class="payment-box"
-          >
 
-            <div
-              class="payment-label"
-            >
-              PayU Transaction ID
-            </div>
+/* ======================================================
+   HTML ESCAPING
+====================================================== */
 
-            <div
-              class="payment-value"
-            >
-              ${
-                payuTxnId
-                  ? escapeHtml(
-                      payuTxnId
-                    )
-                  : '—'
-              }
-            </div>
+function escapeHtml(str){
 
-          </div>
+return String(
+str == null
+? ''
+: str
+).replace(
+/[&<>"']/g,
+function(s){
 
+return {
 
-          <div
-            class="payment-box"
-          >
+'&':
+'&amp;',
 
-            <div
-              class="payment-label"
-            >
-              PayU Payment ID
-            </div>
+'<':
+'&lt;',
 
-            <div
-              class="payment-value"
-            >
-              ${
-                payuPaymentId
-                  ? escapeHtml(
-                      payuPaymentId
-                    )
-                  : '—'
-              }
-            </div>
+'>':
+'&gt;',
 
-          </div>
+'"':
+'&quot;',
 
-        </div>
+"'":
+'&#39;'
 
+}[s];
 
-        <div class="booking-total">
+}
+);
 
-          <span
-            class="status-pill ${payment.className}"
-          >
-            ${payment.label}
-          </span>
+}
 
 
-          <div
-            class="btotal-amt"
-          >
-            ₹${totalAmount.toLocaleString('en-IN')}
-          </div>
+/* ======================================================
+   GROUP BOOKINGS
+====================================================== */
 
+function groupByBooking(
+orders
+){
 
-          <div
-            class="booking-meta"
-          >
-            ${totalPlates}
-            plate(s)
-            across
-            ${group.length}
-            day(s)
-          </div>
+const map =
+new Map();
 
-        </div>
 
-      </div>
+for(
+const order
+of orders
+){
 
+const key =
+order.bookingId ||
+order.finalBookingId ||
+order.orderId ||
+(
+order._id ||
+Math.random()
+);
 
-      <div
-        class="day-table-scroll"
-      >
 
-        <table
-          class="day-table"
-        >
+if(
+!map.has(key)
+){
 
-          <thead>
+map.set(
+key,
+[]
+);
 
-            <tr>
+}
 
-              <th>
-                Day
-              </th>
 
-              <th class="num">
-                Plates
-              </th>
+map
+.get(key)
+.push(order);
 
-              <th class="num">
-                Amount
-              </th>
+}
 
-              <th>
-                UTSAV Order ID
-              </th>
 
-              <th>
-                Payment
-              </th>
+return Array
+.from(
+map.values()
+);
 
-              <th>
-                PayU ID
-              </th>
+}
 
-              <th>
-              </th>
 
-            </tr>
+/* ======================================================
+   PAYMENT STATUS
+====================================================== */
 
-          </thead>
+function getGroupPaymentStatus(
+group
+){
 
+const paid =
+group.filter(
+order =>
+order.status === 'paid' ||
+order.paymentStatus === 'paid' ||
+order.paymentStatus === 'success'
+).length;
 
-          <tbody></tbody>
 
-        </table>
+if(
+paid === group.length
+){
 
-      </div>
+return {
 
+label:
+'PAID',
 
-      <div
-        class="booking-footer"
-      ></div>
+className:
+'status-paid'
 
-    `;
+};
 
+}
 
-    const tbody =
-      wrap.querySelector(
-        'tbody'
-      );
 
+if(
+paid === 0
+){
 
-    for(
-      const order
-      of group
-    ){
+const failed =
+group.some(
+order =>
+order.paymentStatus === 'failed' ||
+order.status === 'failed'
+);
 
-      const tr =
-        document.createElement(
-          'tr'
-        );
 
+if(failed){
 
-      const isPaid =
-        order.status === 'paid' ||
-        order.paymentStatus === 'paid' ||
-        order.paymentStatus === 'success';
+return {
 
+label:
+'PAYMENT FAILED',
 
-      const isFailed =
-        order.status === 'failed' ||
-        order.paymentStatus === 'failed';
+className:
+'status-failed'
 
+};
 
-      const pillClass =
-        isPaid
-          ? 'status-paid'
-          : (
-              isFailed
-                ? 'status-failed'
-                : 'status-pending'
-            );
+}
 
 
-      const statusText =
-        isPaid
-          ? 'PAID'
-          : (
-              isFailed
-                ? 'FAILED'
-                : 'PENDING'
-            );
+return {
 
+label:
+'PAYMENT PENDING',
 
-      const dayOrderId =
-        order.orderId ||
-        order.finalOrderId ||
-        null;
+className:
+'status-pending'
 
+};
 
-      const rowPayuId =
-        order.payuPaymentId ||
-        order.mihpayid ||
-        order.payuId ||
-        payuPaymentId ||
-        null;
+}
 
 
-      tr.innerHTML = `
+return {
 
-        <td>
+label:
+'PARTIALLY PAID',
 
-          ${escapeHtml(
-            order.day || ''
-          )}
+className:
+'status-partial'
 
-        </td>
+};
 
+}
 
-        <td class="num">
 
-          ${Number(
-            order.qty || 0
-          )}
+/* ======================================================
+   RENDER BOOKING GROUP
+====================================================== */
 
-        </td>
+function renderBookingGroup(
+group
+){
 
+const first =
+group[0];
 
-        <td class="num">
 
-          ₹${Number(
-            order.amount || 0
-          ).toLocaleString(
-            'en-IN'
-          )}
+const totalAmount =
+group.reduce(
+function(
+sum,
+order
+){
 
-        </td>
+return (
+sum +
+Number(
+order.amount || 0
+)
+);
 
+},
+0
+);
 
-        <td>
 
-          ${
-            dayOrderId
-              ? escapeHtml(
-                  dayOrderId
-                )
-              : `
-                <span class="no-order-id">
-                  Available after payment
-                </span>
-              `
-          }
+const totalPlates =
+group.reduce(
+function(
+sum,
+order
+){
 
-        </td>
+return (
+sum +
+Number(
+order.qty || 0
+)
+);
 
+},
+0
+);
 
-        <td>
 
-          <span
-            class="status-pill ${pillClass}"
-          >
+const payment =
+getGroupPaymentStatus(
+group
+);
 
-            ${statusText}
 
-          </span>
+const placed =
+first.createdAt
+? new Date(
+first.createdAt
+).toLocaleString(
+'en-IN'
+)
+: '';
 
-        </td>
 
+const finalBookingId =
+first.finalBookingId ||
+first.bookingFinalId ||
+first.bookingOrderId ||
+(
+group.find(
+order =>
+order.finalBookingId ||
+order.bookingFinalId ||
+order.bookingOrderId
+) || {}
+).finalBookingId ||
+null;
 
-        <td>
 
-          ${
-            rowPayuId
-              ? escapeHtml(
-                  rowPayuId
-                )
-              : '—'
-          }
+const finalOrderId =
+finalBookingId ||
+first.finalOrderId ||
+(
+group.find(
+order =>
+order.finalOrderId
+) || {}
+).finalOrderId ||
+null;
 
-        </td>
 
-      `;
+const payuTxnId =
+first.payuTxnId ||
+first.payuTransactionId ||
+(
+group.find(
+order =>
+order.payuTxnId ||
+order.payuTransactionId
+) || {}
+).payuTxnId ||
+null;
 
 
-      const actionTd =
-        document.createElement(
-          'td'
-        );
+const payuPaymentId =
+first.payuPaymentId ||
+first.mihpayid ||
+first.payuId ||
+(
+group.find(
+order =>
+order.payuPaymentId ||
+order.mihpayid ||
+order.payuId
+) || {}
+).payuPaymentId ||
+null;
 
 
-      const btn =
-        document.createElement(
-          'button'
-        );
+/*
+ * Find payment proof at booking level.
+ */
 
+let bookingProof =
+getPaymentProof(
+first
+);
 
-      btn.className =
-        'ghost status-btn';
 
+if(!bookingProof){
 
-      btn.textContent =
-        isPaid
-          ? 'Mark pending'
-          : 'Mark paid';
+const proofOrder =
+group.find(
+order =>
+getPaymentProof(order)
+);
 
+if(proofOrder){
 
-      const statusIdentifier =
-        order.orderId ||
-        order.finalOrderId ||
-        order._id ||
-        null;
+bookingProof =
+getPaymentProof(
+proofOrder
+);
 
+}
 
-      if(statusIdentifier){
+}
 
-        btn.addEventListener(
-          'click',
-          function(){
 
-            toggleStatus(
-              statusIdentifier,
-              isPaid
-                ? 'paid'
-                : 'pending'
-            );
+const wrap =
+document.createElement(
+'div'
+);
 
-          }
-        );
 
+wrap.className =
+'booking-group';
 
-      }else{
 
-        btn.disabled = true;
+wrap.innerHTML = `
 
-        btn.title =
-          'Payment has not created a final order ID yet.';
+<div class="booking-header">
 
-        btn.style.opacity =
-          '0.5';
+<div class="binfo">
 
-        btn.textContent =
-          'Awaiting payment';
+<b>
 
-      }
+${
+finalOrderId
+? escapeHtml(
+finalOrderId
+)
+: `
+<span class="no-order-id">
+Order ID generated after successful payment
+</span>
+`
+}
 
+</b>
 
-      actionTd.appendChild(
-        btn
-      );
 
+<div class="booking-meta">
 
-      tr.appendChild(
-        actionTd
-      );
+${escapeHtml(
+first.name || ''
+)}
 
+·
 
-      tbody.appendChild(
-        tr
-      );
+${escapeHtml(
+first.phone || ''
+)}
 
-    }
+·
 
+${escapeHtml(
+first.email || ''
+)}
 
-    const footer =
-      wrap.querySelector(
-        '.booking-footer'
-      );
+</div>
 
 
-    const bookingId =
-      first.bookingId ||
-      null;
+<div class="booking-meta">
 
+${escapeHtml(
+first.lunchType || ''
+)}
 
-    if(bookingId){
+·
 
-      const bulkBtn =
-        document.createElement(
-          'button'
-        );
+Placed ${escapeHtml(
+placed
+)}
 
+</div>
 
-      bulkBtn.className =
-        'secondary status-btn';
 
+<div class="payment-box">
 
-      const allPaid =
-        group.every(
-          order =>
-            order.status === 'paid' ||
-            order.paymentStatus === 'paid' ||
-            order.paymentStatus === 'success'
-        );
+<div class="payment-label">
+PayU Transaction ID
+</div>
 
+<div class="payment-value">
 
-      bulkBtn.textContent =
-        allPaid
-          ? 'Mark whole booking pending'
-          : 'Mark whole booking paid';
+${
+payuTxnId
+? escapeHtml(
+payuTxnId
+)
+: '—'
+}
 
+</div>
 
-      bulkBtn.addEventListener(
-        'click',
-        function(){
+</div>
 
-          toggleBookingStatus(
-            bookingId,
-            allPaid
-          );
 
-        }
-      );
+<div class="payment-box">
 
+<div class="payment-label">
+PayU Payment ID
+</div>
 
-      footer.appendChild(
-        bulkBtn
-      );
+<div class="payment-value">
 
+${
+payuPaymentId
+? escapeHtml(
+payuPaymentId
+)
+: '—'
+}
 
-      const deleteBtn =
-        document.createElement(
-          'button'
-        );
+</div>
 
+</div>
 
-      deleteBtn.className =
-        'ghost-danger status-btn';
 
+${
+bookingProof
+? `
+<div
+class="payment-box"
+style="display:flex;align-items:center;justify-content:space-between;gap:10px;"
+>
 
-      deleteBtn.textContent =
-        'Delete this booking';
+<div>
 
+<div class="payment-label">
+Payment Proof
+</div>
 
-      deleteBtn.addEventListener(
-        'click',
-        function(){
+<div class="payment-value">
+Buyer uploaded payment screenshot
+</div>
 
-          deleteBooking(
-            bookingId
-          );
+</div>
 
-        }
-      );
+<button
+type="button"
+class="proof-btn booking-proof-btn"
+>
+View Proof
+</button>
 
+</div>
+`
+: ''
+}
 
-      footer.appendChild(
-        deleteBtn
-      );
+</div>
 
-    }
 
+<div class="booking-total">
 
-    return wrap;
+<span
+class="status-pill ${payment.className}"
+>
 
-  }
+${payment.label}
 
+</span>
 
-  /*
-   * ======================================================
-   * LOAD ORDERS
-   * ======================================================
-   */
 
-  async function loadOrders(){
+<div class="btotal-amt">
 
-    const container =
-      document.getElementById(
-        'ordersContainer'
-      );
+₹${totalAmount.toLocaleString('en-IN')}
 
+</div>
 
-    const errEl =
-      document.getElementById(
-        'ordersErr'
-      );
 
+<div class="booking-meta">
 
-    errEl.textContent = '';
+${totalPlates}
 
+plate(s)
 
-    container.innerHTML =
-      `
-        <p
-          style="
-            color:var(--ink-soft);
-            font-size:13px;
-          "
-        >
-          Loading…
-        </p>
-      `;
+across
 
+${group.length}
 
-    try{
+day(s)
 
-      const res =
-        await fetch(
-          '/api/admin/orders',
-          {
-            headers:
-              authHeaders()
-          }
-        );
+</div>
 
+</div>
 
-      if(!res.ok){
+</div>
 
-        throw new Error(
-          'Could not load orders'
-        );
 
-      }
+<div
+class="day-table-scroll"
+>
 
+<table
+class="day-table"
+>
 
-      const data =
-        await res.json();
+<thead>
 
+<tr>
 
-      const orders =
-        data.orders || [];
+<th>
+Day
+</th>
 
+<th class="num">
+Plates
+</th>
 
-      if(
-        orders.length === 0
-      ){
+<th class="num">
+Amount
+</th>
 
-        container.innerHTML =
-          `
-            <p
-              style="
-                color:var(--ink-soft);
-                font-size:13px;
-              "
-            >
-              No bookings yet.
-            </p>
-          `;
+<th>
+UTSAV Order ID
+</th>
 
-        return;
+<th>
+Payment
+</th>
 
-      }
+<th>
+PayU ID
+</th>
 
+<th>
+Payment Proof
+</th>
 
-      const groups =
-        groupByBooking(
-          orders
-        );
+<th>
+</th>
 
+</tr>
 
-      container.innerHTML =
-        '';
+</thead>
 
 
-      for(
-        const group
-        of groups
-      ){
+<tbody></tbody>
 
-        container.appendChild(
-          renderBookingGroup(
-            group
-          )
-        );
+</table>
 
-      }
+</div>
 
 
-    }catch(e){
+<div
+class="booking-footer"
+></div>
 
-      console.error(e);
+`;
 
 
-      errEl.textContent =
-        'Could not load orders.';
+/* ======================================================
+   BOOKING LEVEL PROOF BUTTON
+====================================================== */
 
+if(bookingProof){
 
-      container.innerHTML =
-        `
-          <p
-            style="
-              color:var(--ink-soft);
-              font-size:13px;
-            "
-          >
-            Could not load orders.
-          </p>
-        `;
+const bookingProofBtn =
+wrap.querySelector(
+'.booking-proof-btn'
+);
 
-    }
+if(bookingProofBtn){
 
-  }
+bookingProofBtn.addEventListener(
+'click',
+function(){
 
+showPaymentProof(
+bookingProof,
+finalOrderId ||
+first.orderId ||
+''
+);
 
-  /*
-   * ======================================================
-   * CHANGE SINGLE ORDER STATUS
-   * ======================================================
-   */
+}
+);
 
-  async function toggleStatus(
-    orderId,
-    currentStatus
-  ){
+}
 
-    const newStatus =
-      currentStatus === 'paid'
-        ? 'pending'
-        : 'paid';
+}
 
 
-    try{
+/* ======================================================
+   TABLE BODY
+====================================================== */
 
-      const res =
-        await fetch(
-          `/api/admin/orders/${encodeURIComponent(orderId)}/status`,
-          {
+const tbody =
+wrap.querySelector(
+'tbody'
+);
 
-            method:
-              'POST',
 
-            headers:
-              authHeaders(),
+for(
+const order
+of group
+){
 
-            body:
-              JSON.stringify({
-                status:
-                  newStatus
-              })
+const tr =
+document.createElement(
+'tr'
+);
 
-          }
-        );
 
+const isPaid =
+order.status === 'paid' ||
+order.paymentStatus === 'paid' ||
+order.paymentStatus === 'success';
 
-      if(!res.ok){
 
-        const result =
-          await res
-            .json()
-            .catch(
-              () => ({})
-            );
+const isFailed =
+order.status === 'failed' ||
+order.paymentStatus === 'failed';
 
 
-        alert(
-          result.error ||
-          'Could not update payment status.'
-        );
+const pillClass =
+isPaid
+? 'status-paid'
+: (
+isFailed
+? 'status-failed'
+: 'status-pending'
+);
 
-        return;
 
-      }
+const statusText =
+isPaid
+? 'PAID'
+: (
+isFailed
+? 'FAILED'
+: 'PENDING'
+);
 
 
-      await loadStats();
+const dayOrderId =
+order.orderId ||
+order.finalOrderId ||
+null;
 
-      await loadOrders();
 
+const rowPayuId =
+order.payuPaymentId ||
+order.mihpayid ||
+order.payuId ||
+payuPaymentId ||
+null;
 
-    }catch(e){
 
-      console.error(e);
+/*
+ * Get proof specifically for this order.
+ */
 
-      alert(
-        'Could not reach the server.'
-      );
+const rowProof =
+getPaymentProof(
+order
+);
 
-    }
 
-  }
+tr.innerHTML = `
 
+<td>
 
-  /*
-   * ======================================================
-   * CHANGE WHOLE BOOKING STATUS
-   * ======================================================
-   */
+${escapeHtml(
+order.day || ''
+)}
 
-  async function toggleBookingStatus(
-    bookingId,
-    currentlyAllPaid
-  ){
+</td>
 
-    const newStatus =
-      currentlyAllPaid
-        ? 'pending'
-        : 'paid';
 
+<td class="num">
 
-    try{
+${Number(
+order.qty || 0
+)}
 
-      const res =
-        await fetch(
-          `/api/admin/bookings/${encodeURIComponent(bookingId)}/status`,
-          {
+</td>
 
-            method:
-              'POST',
 
-            headers:
-              authHeaders(),
+<td class="num">
 
-            body:
-              JSON.stringify({
-                status:
-                  newStatus
-              })
+₹${Number(
+order.amount || 0
+).toLocaleString(
+'en-IN'
+)}
 
-          }
-        );
+</td>
 
 
-      if(!res.ok){
+<td>
 
-        const result =
-          await res
-            .json()
-            .catch(
-              () => ({})
-            );
+${
+dayOrderId
+? escapeHtml(
+dayOrderId
+)
+: `
+<span class="no-order-id">
+Available after payment
+</span>
+`
+}
 
+</td>
 
-        alert(
-          result.error ||
-          'Could not update booking status.'
-        );
 
-        return;
+<td>
 
-      }
+<span
+class="status-pill ${pillClass}"
+>
 
+${statusText}
 
-      await loadStats();
+</span>
 
-      await loadOrders();
+</td>
 
 
-    }catch(e){
+<td>
 
-      console.error(e);
+${
+rowPayuId
+? escapeHtml(
+rowPayuId
+)
+: '—'
+}
 
-      alert(
-        'Could not reach the server.'
-      );
+</td>
 
-    }
 
-  }
+<td class="proof-cell">
 
+${
+rowProof
+? `
+<button
+type="button"
+class="proof-btn view-row-proof"
+>
+View Proof
+</button>
+`
+: `
+<span class="no-proof">
+No proof uploaded
+</span>
+`
+}
 
-  /*
-   * ======================================================
-   * DELETE SINGLE BOOKING
-   * ======================================================
-   */
+</td>
 
-  async function deleteBooking(
-    bookingId
-  ){
+`;
 
-    const entered =
-      prompt(
-        `This will permanently delete booking ${bookingId} and all its day-orders.\n\nType your admin API key to confirm:`
-      );
 
+/* ======================================================
+   VIEW PROOF BUTTON
+====================================================== */
 
-    if(
-      entered === null
-    ){
+const proofBtn =
+tr.querySelector(
+'.view-row-proof'
+);
 
-      return;
 
-    }
+if(proofBtn){
 
+proofBtn.addEventListener(
+'click',
+function(){
 
-    if(
-      entered !== apiKey
-    ){
+showPaymentProof(
+rowProof,
+dayOrderId ||
+finalOrderId ||
+''
+);
 
-      alert(
-        'That key did not match. Nothing was deleted.'
-      );
+}
+);
 
-      return;
+}
 
-    }
 
+/* ======================================================
+   ACTION BUTTON
+====================================================== */
 
-    try{
+const actionTd =
+document.createElement(
+'td'
+);
 
-      const res =
-        await fetch(
-          `/api/admin/bookings/${encodeURIComponent(bookingId)}`,
-          {
 
-            method:
-              'DELETE',
+const btn =
+document.createElement(
+'button'
+);
 
-            headers:
-              authHeaders()
 
-          }
-        );
+btn.className =
+'ghost status-btn';
 
 
-      if(!res.ok){
+btn.textContent =
+isPaid
+? 'Mark pending'
+: 'Mark paid';
 
-        const result =
-          await res
-            .json()
-            .catch(
-              () => ({})
-            );
 
+const statusIdentifier =
+order.orderId ||
+order.finalOrderId ||
+order._id ||
+null;
 
-        alert(
-          result.error ||
-          'Could not delete this booking.'
-        );
 
-        return;
+if(statusIdentifier){
 
-      }
+btn.addEventListener(
+'click',
+function(){
 
+toggleStatus(
+statusIdentifier,
+isPaid
+? 'paid'
+: 'pending'
+);
 
-      await loadStats();
+}
+);
 
-      await loadOrders();
+}else{
 
+btn.disabled = true;
 
-    }catch(e){
+btn.title =
+'Payment has not created a final order ID yet.';
 
-      console.error(e);
+btn.style.opacity =
+'0.5';
 
-      alert(
-        'Could not reach the server.'
-      );
+btn.textContent =
+'Awaiting payment';
 
-    }
+}
 
-  }
 
+actionTd.appendChild(
+btn
+);
 
-  /*
-   * ======================================================
-   * RESET ALL ORDERS
-   * ======================================================
-   */
 
-  async function resetAllOrders(){
+tr.appendChild(
+actionTd
+);
 
-    const enteredKey =
-      prompt(
-        'This will PERMANENTLY DELETE every booking and order in the system.\n\nType your admin API key to confirm:'
-      );
 
+tbody.appendChild(
+tr
+);
 
-    if(
-      enteredKey === null
-    ){
+}
 
-      return;
 
-    }
+/* ======================================================
+   FOOTER
+====================================================== */
 
+const footer =
+wrap.querySelector(
+'.booking-footer'
+);
 
-    if(
-      enteredKey !== apiKey
-    ){
 
-      alert(
-        'That key did not match. Nothing was deleted.'
-      );
+const bookingId =
+first.bookingId ||
+null;
 
-      return;
 
-    }
+if(bookingId){
 
+const bulkBtn =
+document.createElement(
+'button'
+);
 
-    const phrase =
-      prompt(
-        'Last step. Type exactly: DELETE ALL\n\n(this cannot be undone)'
-      );
 
+bulkBtn.className =
+'secondary status-btn';
 
-    if(
-      phrase === null
-    ){
 
-      return;
+const allPaid =
+group.every(
+order =>
+order.status === 'paid' ||
+order.paymentStatus === 'paid' ||
+order.paymentStatus === 'success'
+);
 
-    }
 
+bulkBtn.textContent =
+allPaid
+? 'Mark whole booking pending'
+: 'Mark whole booking paid';
 
-    if(
-      phrase !== 'DELETE ALL'
-    ){
 
-      alert(
-        'That did not match "DELETE ALL". Nothing was deleted.'
-      );
+bulkBtn.addEventListener(
+'click',
+function(){
 
-      return;
+toggleBookingStatus(
+bookingId,
+allPaid
+);
 
-    }
+}
+);
 
 
-    try{
+footer.appendChild(
+bulkBtn
+);
 
-      const res =
-        await fetch(
-          '/api/admin/orders',
-          {
 
-            method:
-              'DELETE',
+const deleteBtn =
+document.createElement(
+'button'
+);
 
-            headers:
-              authHeaders(),
 
-            body:
-              JSON.stringify({
-                confirm:
-                  'DELETE ALL'
-              })
+deleteBtn.className =
+'ghost-danger status-btn';
 
-          }
-        );
 
+deleteBtn.textContent =
+'Delete this booking';
 
-      const result =
-        await res
-          .json()
-          .catch(
-            () => ({})
-          );
 
+deleteBtn.addEventListener(
+'click',
+function(){
 
-      if(!res.ok){
+deleteBooking(
+bookingId
+);
 
-        alert(
-          result.error ||
-          'Could not reset orders.'
-        );
+}
+);
 
-        return;
 
-      }
+footer.appendChild(
+deleteBtn
+);
 
+}
 
-      alert(
-        `Deleted ${result.deletedCount || 0} order(s).`
-      );
 
+return wrap;
 
-      await loadStats();
+}
 
-      await loadOrders();
 
+/* ======================================================
+   LOAD ORDERS
+====================================================== */
 
-    }catch(e){
+async function loadOrders(){
 
-      console.error(e);
+const container =
+document.getElementById(
+'ordersContainer'
+);
 
-      alert(
-        'Could not reach the server.'
-      );
 
-    }
+const errEl =
+document.getElementById(
+'ordersErr'
+);
 
-  }
 
+errEl.textContent = '';
 
-  /*
-   * ======================================================
-   * RESET BUTTON
-   * ======================================================
-   */
 
-  document
-    .getElementById(
-      'resetAllBtn'
-    )
-    .addEventListener(
-      'click',
-      resetAllOrders
-    );
+container.innerHTML =
+`
 
+<p
+style="
+color:var(--ink-soft);
+font-size:13px;
+"
+>
+Loading…
+</p>
 
-  /*
-   * ======================================================
-   * REFRESH BUTTON
-   * ======================================================
-   */
+`;
 
-  document
-    .getElementById(
-      'refreshBtn'
-    )
-    .addEventListener(
-      'click',
-      async function(){
 
-        await loadStats();
+try{
 
-        await loadOrders();
+const res =
+await fetch(
+'/api/admin/orders',
+{
+headers:
+authHeaders()
+}
+);
 
-      }
-    );
 
+if(!res.ok){
 
-  /*
-   * ======================================================
-   * EXPORT CSV
-   * ======================================================
-   */
+throw new Error(
+'Could not load orders'
+);
 
-  document
-    .getElementById(
-      'exportBtn'
-    )
-    .addEventListener(
-      'click',
-      async function(){
+}
 
-        try{
 
-          const res =
-            await fetch(
-              '/api/admin/orders/export',
-              {
-                headers:
-                  authHeaders()
-              }
-            );
+const data =
+await res.json();
 
 
-          if(!res.ok){
+const orders =
+data.orders || [];
 
-            const result =
-              await res
-                .json()
-                .catch(
-                  () => ({})
-                );
 
+if(
+orders.length === 0
+){
 
-            alert(
-              result.error ||
-              'Could not export orders.'
-            );
+container.innerHTML =
+`
 
-            return;
+<p
+style="
+color:var(--ink-soft);
+font-size:13px;
+"
+>
+No bookings yet.
+</p>
 
-          }
+`;
 
+return;
 
-          const blob =
-            await res.blob();
+}
 
 
-          const url =
-            URL.createObjectURL(
-              blob
-            );
+const groups =
+groupByBooking(
+orders
+);
 
 
-          const a =
-            document.createElement(
-              'a'
-            );
+container.innerHTML =
+'';
 
 
-          a.href =
-            url;
+for(
+const group
+of groups
+){
 
+container.appendChild(
+renderBookingGroup(
+group
+)
+);
 
-          a.download =
-            'bhog-orders.csv';
+}
 
 
-          document
-            .body
-            .appendChild(a);
+}catch(e){
 
+console.error(e);
 
-          a.click();
 
+errEl.textContent =
+'Could not load orders.';
 
-          a.remove();
 
+container.innerHTML =
+`
 
-          URL.revokeObjectURL(
-            url
-          );
+<p
+style="
+color:var(--ink-soft);
+font-size:13px;
+"
+>
+Could not load orders.
+</p>
 
+`;
 
-        }catch(e){
+}
 
-          console.error(e);
+}
 
-          alert(
-            'Could not reach the server.'
-          );
 
-        }
+/* ======================================================
+   CHANGE SINGLE ORDER STATUS
+====================================================== */
 
-      }
-    );
+async function toggleStatus(
+orderId,
+currentStatus
+){
+
+const newStatus =
+currentStatus === 'paid'
+? 'pending'
+: 'paid';
+
+
+try{
+
+const res =
+await fetch(
+`/api/admin/orders/${encodeURIComponent(orderId)}/status`,
+{
+
+method:
+'POST',
+
+headers:
+authHeaders(),
+
+body:
+JSON.stringify({
+status:
+newStatus
+})
+
+}
+);
+
+
+if(!res.ok){
+
+const result =
+await res
+.json()
+.catch(
+() => ({})
+);
+
+
+alert(
+result.error ||
+'Could not update payment status.'
+);
+
+return;
+
+}
+
+
+await loadStats();
+
+await loadOrders();
+
+
+}catch(e){
+
+console.error(e);
+
+alert(
+'Could not reach the server.'
+);
+
+}
+
+}
+
+
+/* ======================================================
+   CHANGE WHOLE BOOKING STATUS
+====================================================== */
+
+async function toggleBookingStatus(
+bookingId,
+currentlyAllPaid
+){
+
+const newStatus =
+currentlyAllPaid
+? 'pending'
+: 'paid';
+
+
+try{
+
+const res =
+await fetch(
+`/api/admin/bookings/${encodeURIComponent(bookingId)}/status`,
+{
+
+method:
+'POST',
+
+headers:
+authHeaders(),
+
+body:
+JSON.stringify({
+status:
+newStatus
+})
+
+}
+);
+
+
+if(!res.ok){
+
+const result =
+await res
+.json()
+.catch(
+() => ({})
+);
+
+
+alert(
+result.error ||
+'Could not update booking status.'
+);
+
+return;
+
+}
+
+
+await loadStats();
+
+await loadOrders();
+
+
+}catch(e){
+
+console.error(e);
+
+alert(
+'Could not reach the server.'
+);
+
+}
+
+}
+
+
+/* ======================================================
+   DELETE SINGLE BOOKING
+====================================================== */
+
+async function deleteBooking(
+bookingId
+){
+
+const entered =
+prompt(
+`This will permanently delete booking ${bookingId} and all its day-orders.\n\nType your admin API key to confirm:`
+);
+
+
+if(
+entered === null
+){
+
+return;
+
+}
+
+
+if(
+entered !== apiKey
+){
+
+alert(
+'That key did not match. Nothing was deleted.'
+);
+
+return;
+
+}
+
+
+try{
+
+const res =
+await fetch(
+`/api/admin/bookings/${encodeURIComponent(bookingId)}`,
+{
+
+method:
+'DELETE',
+
+headers:
+authHeaders()
+
+}
+);
+
+
+if(!res.ok){
+
+const result =
+await res
+.json()
+.catch(
+() => ({})
+);
+
+
+alert(
+result.error ||
+'Could not delete this booking.'
+);
+
+return;
+
+}
+
+
+await loadStats();
+
+await loadOrders();
+
+
+}catch(e){
+
+console.error(e);
+
+alert(
+'Could not reach the server.'
+);
+
+}
+
+}
+
+
+/* ======================================================
+   RESET ALL ORDERS
+====================================================== */
+
+async function resetAllOrders(){
+
+const enteredKey =
+prompt(
+'This will PERMANENTLY DELETE every booking and order in the system.\n\nType your admin API key to confirm:'
+);
+
+
+if(
+enteredKey === null
+){
+
+return;
+
+}
+
+
+if(
+enteredKey !== apiKey
+){
+
+alert(
+'That key did not match. Nothing was deleted.'
+);
+
+return;
+
+}
+
+
+const phrase =
+prompt(
+'Last step. Type exactly: DELETE ALL\n\n(this cannot be undone)'
+);
+
+
+if(
+phrase === null
+){
+
+return;
+
+}
+
+
+if(
+phrase !== 'DELETE ALL'
+){
+
+alert(
+'That did not match "DELETE ALL". Nothing was deleted.'
+);
+
+return;
+
+}
+
+
+try{
+
+const res =
+await fetch(
+'/api/admin/orders',
+{
+
+method:
+'DELETE',
+
+headers:
+authHeaders(),
+
+body:
+JSON.stringify({
+confirm:
+'DELETE ALL'
+})
+
+}
+);
+
+
+const result =
+await res
+.json()
+.catch(
+() => ({})
+);
+
+
+if(!res.ok){
+
+alert(
+result.error ||
+'Could not reset orders.'
+);
+
+return;
+
+}
+
+
+alert(
+`Deleted ${result.deletedCount || 0} order(s).`
+);
+
+
+await loadStats();
+
+await loadOrders();
+
+
+}catch(e){
+
+console.error(e);
+
+alert(
+'Could not reach the server.'
+);
+
+}
+
+}
+
+
+/* ======================================================
+   RESET BUTTON
+====================================================== */
+
+document
+.getElementById(
+'resetAllBtn'
+)
+.addEventListener(
+'click',
+resetAllOrders
+);
+
+
+/* ======================================================
+   REFRESH BUTTON
+====================================================== */
+
+document
+.getElementById(
+'refreshBtn'
+)
+.addEventListener(
+'click',
+async function(){
+
+await loadStats();
+
+await loadOrders();
+
+}
+);
+
+
+/* ======================================================
+   EXPORT CSV
+====================================================== */
+
+document
+.getElementById(
+'exportBtn'
+)
+.addEventListener(
+'click',
+async function(){
+
+try{
+
+const res =
+await fetch(
+'/api/admin/orders/export',
+{
+headers:
+authHeaders()
+}
+);
+
+
+if(!res.ok){
+
+const result =
+await res
+.json()
+.catch(
+() => ({})
+);
+
+
+alert(
+result.error ||
+'Could not export orders.'
+);
+
+return;
+
+}
+
+
+const blob =
+await res.blob();
+
+
+const url =
+URL.createObjectURL(
+blob
+);
+
+
+const a =
+document.createElement(
+'a'
+);
+
+
+a.href =
+url;
+
+
+a.download =
+'bhog-orders.csv';
+
+
+document
+.body
+.appendChild(a);
+
+
+a.click();
+
+
+a.remove();
+
+
+URL.revokeObjectURL(
+url
+);
+
+
+}catch(e){
+
+console.error(e);
+
+alert(
+'Could not reach the server.'
+);
+
+}
+
+}
+
+);
 
 })();
 
