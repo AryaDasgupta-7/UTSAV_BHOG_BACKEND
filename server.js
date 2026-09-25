@@ -140,11 +140,6 @@ function generatePayUTxnId(bookingId) {
       .toString(36)
       .toUpperCase();
 
-  /*
-   * Keep transaction ID comfortably below PayU's
-   * common transaction-ID length limits.
-   */
-
   return `${bookingId}-${timestamp}-${random}`
     .replace(/[^A-Za-z0-9_-]/g, '')
     .slice(0, 40);
@@ -153,19 +148,6 @@ function generatePayUTxnId(bookingId) {
 
 // ============================================================
 // PAYU REQUEST HASH
-// ============================================================
-//
-// PayU:
-//
-// SHA512(
-//   key|txnid|amount|productinfo|firstname|email|
-//   udf1|udf2|udf3|udf4|udf5||||||SALT
-// )
-//
-// IMPORTANT:
-// There are FIVE empty fields after udf5.
-// Therefore there are SIX "|" characters after udf5.
-//
 // ============================================================
 
 function generatePayURequestHash({
@@ -224,22 +206,6 @@ function generatePayURequestHash({
 // ============================================================
 // PAYU RESPONSE HASH
 // ============================================================
-//
-// CORRECT PayU reverse hash:
-//
-// SALT|status||||||udf5|udf4|udf3|udf2|udf1|
-// email|firstname|productinfo|amount|txnid|key
-//
-// IMPORTANT:
-// There are FIVE empty fields between status and udf5.
-//
-// That creates:
-//
-// status + "||||||" + udf5
-//
-// DO NOT ADD SIX EMPTY ARRAY VALUES HERE.
-//
-// ============================================================
 
 function generatePayUResponseHash({
   salt,
@@ -266,14 +232,6 @@ function generatePayUResponseHash({
     additionalCharges !== undefined &&
     String(additionalCharges).trim() !== ''
   ) {
-
-    /*
-     * Additional charges formula:
-     *
-     * additionalCharges|SALT|status||||||
-     * udf5|udf4|udf3|udf2|udf1|
-     * email|firstname|productinfo|amount|txnid|key
-     */
 
     hashString =
       [
@@ -302,12 +260,6 @@ function generatePayUResponseHash({
       ].join('|');
 
   } else {
-
-    /*
-     * NORMAL PayU reverse hash.
-     *
-     * FIVE empty fields after status.
-     */
 
     hashString =
       [
@@ -544,7 +496,6 @@ app.post(
         name,
         phone,
         email,
-        lunchType,
         days
       } = req.body || {};
 
@@ -615,25 +566,6 @@ app.post(
 
 
       // --------------------------------------------------------
-      // LUNCH TYPE
-      // --------------------------------------------------------
-
-      if (
-        !VALID_LUNCH_TYPES.includes(
-          lunchType
-        )
-      ) {
-
-        return res.status(400).json({
-
-          error:
-            'Please choose a lunch type.'
-
-        });
-      }
-
-
-      // --------------------------------------------------------
       // DAYS
       // --------------------------------------------------------
 
@@ -679,6 +611,17 @@ app.post(
           );
 
 
+        // NEW:
+        // Lunch type is now stored INSIDE EACH DAY
+        const lunchType =
+          entry &&
+          entry.lunchType;
+
+
+        // ------------------------------------------------------
+        // VALIDATE DAY
+        // ------------------------------------------------------
+
         if (
           !VALID_DAYS.includes(day)
         ) {
@@ -692,6 +635,10 @@ app.post(
         }
 
 
+        // ------------------------------------------------------
+        // PREVENT DUPLICATE DAY
+        // ------------------------------------------------------
+
         if (
           seenDays.has(day)
         ) {
@@ -704,6 +651,10 @@ app.post(
           });
         }
 
+
+        // ------------------------------------------------------
+        // VALIDATE QUANTITY
+        // ------------------------------------------------------
 
         if (
           !Number.isInteger(qtyNum) ||
@@ -720,17 +671,43 @@ app.post(
         }
 
 
+        // ------------------------------------------------------
+        // VALIDATE LUNCH TYPE FOR THIS DAY
+        // ------------------------------------------------------
+
+        if (
+          !VALID_LUNCH_TYPES.includes(
+            lunchType
+          )
+        ) {
+
+          return res.status(400).json({
+
+            error:
+              `Please choose a valid lunch type for ${day}.`
+
+          });
+        }
+
+
         seenDays.add(day);
 
+
+        // ------------------------------------------------------
+        // SAVE CLEAN DAY
+        // ------------------------------------------------------
 
         cleanDays.push({
 
           day,
 
           qty:
-            qtyNum
+            qtyNum,
+
+          lunchType
 
         });
+
       }
 
 
@@ -758,7 +735,8 @@ app.post(
         cleanDays.map(
           ({
             day,
-            qty
+            qty,
+            lunchType
           }) => {
 
             return {
@@ -767,6 +745,8 @@ app.post(
 
               day,
 
+              // NEW:
+              // Each order gets its own lunch type
               lunchType,
 
               name:
@@ -841,6 +821,7 @@ app.post(
             'Could not save your order right now. Please try again.'
 
         });
+
       }
 
 
@@ -864,8 +845,6 @@ app.post(
 
         totalAmount,
 
-        lunchType,
-
         paymentStatus:
           'pending',
 
@@ -878,6 +857,10 @@ app.post(
 
               qty:
                 order.qty,
+
+              // NEW:
+              lunchType:
+                order.lunchType,
 
               amount:
                 order.amount
@@ -902,6 +885,7 @@ app.post(
           'Could not create your order. Please try again.'
 
       });
+
     }
 
   }
@@ -1250,6 +1234,7 @@ app.post(
           'Could not initialize PayU payment.'
 
       });
+
     }
 
   }
@@ -1831,6 +1816,7 @@ a {
               };
 
             }
+
           );
 
 
@@ -1872,6 +1858,23 @@ a {
           );
 
 
+        // ------------------------------------------------------
+        // CREATE BOOKING OBJECT
+        // ------------------------------------------------------
+        //
+        // IMPORTANT:
+        // lunchType is now stored individually in each
+        // paidOrders item.
+        //
+        // Therefore dayOrders contains:
+        //
+        // day
+        // qty
+        // lunchType
+        // amount
+        //
+        // ------------------------------------------------------
+
         const booking = {
 
           bookingId,
@@ -1884,9 +1887,6 @@ a {
 
           email:
             paidOrders[0].email,
-
-          lunchType:
-            paidOrders[0].lunchType,
 
           totalAmount,
 
@@ -1907,48 +1907,52 @@ a {
         };
 
 
- // --------------------------------------------------------
-// SELLER + CUSTOMER EMAILS
-// --------------------------------------------------------
+        // --------------------------------------------------------
+        // SELLER + CUSTOMER EMAILS
+        // --------------------------------------------------------
 
-const emailResults =
-  await Promise.allSettled([
+        const emailResults =
+          await Promise.allSettled([
 
-    sendOrderEmail(
-      booking
-    ),
+            sendOrderEmail(
+              booking
+            ),
 
-    sendCustomerReceiptEmail(
-      booking,
-      null
-    )
+            sendCustomerReceiptEmail(
+              booking,
+              null
+            )
 
-  ]);
+          ]);
 
-emailResults.forEach(
-  (
-    result,
-    index
-  ) => {
 
-    if (
-      result.status ===
-      'rejected'
-    ) {
+        emailResults.forEach(
+          (
+            result,
+            index
+          ) => {
 
-      console.error(
+            if (
+              result.status ===
+              'rejected'
+            ) {
 
-        index === 0
-          ? 'Seller email failed:'
-          : 'Customer receipt email failed:',
+              console.error(
 
-        result.reason
+                index === 0
+                  ? 'Seller email failed:'
+                  : 'Customer receipt email failed:',
 
-      );
-    }
+                result.reason
 
-  }
-);
+              );
+
+            }
+
+          }
+        );
+
+
         // ------------------------------------------------------
         // LOG SUCCESS
         // ------------------------------------------------------
@@ -1986,7 +1990,7 @@ emailResults.forEach(
           order => {
 
             console.log(
-              `  ${order.day}: ${order.orderId}`
+              `  ${order.day}: ${order.orderId} | ${order.lunchType}`
             );
 
           }
@@ -2049,6 +2053,7 @@ emailResults.forEach(
                 new Date().toISOString()
 
             }
+
           }
 
         );
@@ -2087,6 +2092,7 @@ emailResults.forEach(
         'There was an error while processing the payment response. If money was deducted, please contact the administrator with your PayU transaction ID.'
 
       );
+
     }
 
   }
@@ -2134,6 +2140,7 @@ app.get(
           'Could not load orders.'
 
       });
+
     }
 
   }
@@ -2246,6 +2253,7 @@ app.get(
           'Could not load statistics.'
 
       });
+
     }
 
   }
@@ -2292,7 +2300,9 @@ app.post(
       const existing =
         await ordersCollection()
           .findOne({
+
             orderId
+
           });
 
 
@@ -2347,8 +2357,11 @@ app.post(
               generateOrderId(
                 dayCode
               );
+
           }
+
         }
+
       }
 
 
@@ -2403,6 +2416,7 @@ app.post(
           'Could not update order status.'
 
       });
+
     }
 
   }
@@ -2510,6 +2524,7 @@ app.post(
                   generateOrderId(
                     dayCode
                   );
+
               }
 
 
@@ -2536,6 +2551,7 @@ app.post(
               };
 
             }
+
           );
 
 
@@ -2559,6 +2575,7 @@ app.post(
             },
 
             {
+
               $set: {
 
                 status:
@@ -2606,6 +2623,7 @@ app.post(
           'Could not update booking status.'
 
       });
+
     }
 
   }
@@ -2674,6 +2692,7 @@ app.delete(
           'Could not delete booking.'
 
       });
+
     }
 
   }
@@ -2738,6 +2757,7 @@ app.delete(
           'Could not delete orders.'
 
       });
+
     }
 
   }
@@ -2892,6 +2912,7 @@ app.get(
           'Could not export orders.'
 
       });
+
     }
 
   }
