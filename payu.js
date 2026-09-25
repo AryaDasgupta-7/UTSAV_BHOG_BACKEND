@@ -1,4 +1,4 @@
-<pre><code>const crypto = require('crypto');
+const crypto = require('crypto');
 
 
 /*
@@ -341,4 +341,4 @@ module.exports = {
   verifyResponseHash
 
 };
-</code></pre>
+
