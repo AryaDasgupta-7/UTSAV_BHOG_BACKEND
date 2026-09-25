@@ -291,7 +291,7 @@ button.ghost-danger:hover{
 
 .day-table{
   width:100%;
-  min-width:930px;
+  min-width:1020px;
   border-collapse:collapse;
   font-size:12.5px;
 }
@@ -354,6 +354,33 @@ button.ghost-danger:hover{
 .no-order-id{
   color:#A5622F;
   font-style:italic;
+}
+
+/* ======================================================
+   LUNCH TYPE
+====================================================== */
+
+.lunch-type-pill{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:7px;
+  font-size:11px;
+  font-weight:600;
+}
+
+.lunch-packing{
+  background:#FDF0D5;
+  color:#8A5A12;
+}
+
+.lunch-dinein{
+  background:#E6F1EC;
+  color:var(--teal);
+}
+
+.lunch-unknown{
+  background:#F1ECE5;
+  color:var(--ink-soft);
 }
 
 /* ======================================================
@@ -755,8 +782,9 @@ Payment Proof
 
 let apiKey =
 sessionStorage.getItem(
-'bhogAdminKey'
+  'bhogAdminKey'
 ) || '';
+
 
 
 /* ======================================================
@@ -776,6 +804,7 @@ apiKey,
 };
 
 }
+
 
 
 /* ======================================================
@@ -916,6 +945,7 @@ return null;
 }
 
 
+
 /* ======================================================
    MAKE IMAGE URL
 ====================================================== */
@@ -988,6 +1018,7 @@ return '/' + proof;
 }
 
 
+
 /* ======================================================
    SHOW PAYMENT PROOF
 ====================================================== */
@@ -1045,6 +1076,7 @@ modal.classList.remove(
 }
 
 
+
 /* ======================================================
    CLOSE PAYMENT PROOF
 ====================================================== */
@@ -1071,6 +1103,7 @@ image.src =
 }
 
 
+
 document
 .getElementById(
 'proofCloseBtn'
@@ -1079,6 +1112,7 @@ document
 'click',
 closePaymentProof
 );
+
 
 
 document
@@ -1100,6 +1134,7 @@ closePaymentProof();
 });
 
 
+
 document.addEventListener(
 'keydown',
 function(e){
@@ -1113,6 +1148,7 @@ closePaymentProof();
 }
 
 });
+
 
 
 /* ======================================================
@@ -1195,6 +1231,7 @@ return false;
 }
 
 
+
 /* ======================================================
    LOGIN BUTTON
 ====================================================== */
@@ -1236,6 +1273,7 @@ tryLoad();
 );
 
 
+
 /* ======================================================
    AUTO LOGIN
 ====================================================== */
@@ -1245,6 +1283,7 @@ if(apiKey){
 tryLoad();
 
 }
+
 
 
 /* ======================================================
@@ -1344,6 +1383,7 @@ e
 }
 
 
+
 /* ======================================================
    HTML ESCAPING
 ====================================================== */
@@ -1381,6 +1421,128 @@ return {
 );
 
 }
+
+
+
+/* ======================================================
+   LUNCH TYPE
+====================================================== */
+
+function getLunchType(order){
+
+/*
+ * New structure:
+ *
+ * order.lunchType
+ *
+ * Each day-order has its own
+ * lunch type.
+ */
+
+const value =
+order &&
+order.lunchType
+? String(
+    order.lunchType
+  ).trim()
+: '';
+
+
+if(!value){
+
+return '—';
+
+}
+
+
+return value;
+
+}
+
+
+
+/* ======================================================
+   LUNCH TYPE HTML
+====================================================== */
+
+function renderLunchType(order){
+
+const lunchType =
+getLunchType(order);
+
+
+if(
+lunchType === '—'
+){
+
+return `
+
+<span
+class="lunch-type-pill lunch-unknown"
+>
+—
+</span>
+
+`;
+
+}
+
+
+const normalized =
+lunchType
+.toLowerCase()
+.replace(
+/[\s-]+/g,
+''
+);
+
+
+let className =
+'lunch-unknown';
+
+
+/*
+ * Packing
+ */
+
+if(
+normalized === 'packing'
+){
+
+className =
+'lunch-packing';
+
+}
+
+
+/*
+ * Dine-In
+ */
+
+if(
+normalized === 'dinein' ||
+normalized === 'communitylunch(dinein)' ||
+normalized === 'communitylunch(dine-in)'
+){
+
+className =
+'lunch-dinein';
+
+}
+
+
+return `
+
+<span
+class="lunch-type-pill ${className}"
+>
+${escapeHtml(lunchType)}
+</span>
+
+`;
+
+}
+
 
 
 /* ======================================================
@@ -1435,6 +1597,7 @@ map.values()
 );
 
 }
+
 
 
 /* ======================================================
@@ -1522,6 +1685,7 @@ className:
 };
 
 }
+
 
 
 /* ======================================================
@@ -1696,8 +1860,8 @@ wrap.innerHTML = `
 ${
 finalOrderId
 ? escapeHtml(
-finalOrderId
-)
+    finalOrderId
+  )
 : `
 <span class="no-order-id">
 Order ID generated after successful payment
@@ -1731,12 +1895,6 @@ first.email || ''
 
 <div class="booking-meta">
 
-${escapeHtml(
-first.lunchType || ''
-)}
-
-·
-
 Placed ${escapeHtml(
 placed
 )}
@@ -1755,8 +1913,8 @@ PayU Transaction ID
 ${
 payuTxnId
 ? escapeHtml(
-payuTxnId
-)
+    payuTxnId
+  )
 : '—'
 }
 
@@ -1776,8 +1934,8 @@ PayU Payment ID
 ${
 payuPaymentId
 ? escapeHtml(
-payuPaymentId
-)
+    payuPaymentId
+  )
 : '—'
 }
 
@@ -1791,7 +1949,12 @@ bookingProof
 ? `
 <div
 class="payment-box"
-style="display:flex;align-items:center;justify-content:space-between;gap:10px;"
+style="
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:10px;
+"
 >
 
 <div>
@@ -1874,6 +2037,10 @@ class="day-table"
 Day
 </th>
 
+<th>
+Lunch Type
+</th>
+
 <th class="num">
 Plates
 </th>
@@ -1920,6 +2087,7 @@ class="booking-footer"
 `;
 
 
+
 /* ======================================================
    BOOKING LEVEL PROOF BUTTON
 ====================================================== */
@@ -1950,6 +2118,7 @@ first.orderId ||
 }
 
 }
+
 
 
 /* ======================================================
@@ -2028,12 +2197,32 @@ order
 );
 
 
+/*
+ * Get lunch type specifically
+ * for this day.
+ */
+
+const rowLunchType =
+getLunchType(
+order
+);
+
+
 tr.innerHTML = `
 
 <td>
 
 ${escapeHtml(
 order.day || ''
+)}
+
+</td>
+
+
+<td>
+
+${renderLunchType(
+order
 )}
 
 </td>
@@ -2064,8 +2253,8 @@ order.amount || 0
 ${
 dayOrderId
 ? escapeHtml(
-dayOrderId
-)
+    dayOrderId
+  )
 : `
 <span class="no-order-id">
 Available after payment
@@ -2094,8 +2283,8 @@ ${statusText}
 ${
 rowPayuId
 ? escapeHtml(
-rowPayuId
-)
+    rowPayuId
+  )
 : '—'
 }
 
@@ -2153,6 +2342,7 @@ finalOrderId ||
 );
 
 }
+
 
 
 /* ======================================================
@@ -2237,6 +2427,7 @@ tr
 }
 
 
+
 /* ======================================================
    FOOTER
 ====================================================== */
@@ -2297,6 +2488,7 @@ bulkBtn
 );
 
 
+
 const deleteBtn =
 document.createElement(
 'button'
@@ -2333,6 +2525,7 @@ deleteBtn
 return wrap;
 
 }
+
 
 
 /* ======================================================
@@ -2475,6 +2668,7 @@ Could not load orders.
 }
 
 
+
 /* ======================================================
    CHANGE SINGLE ORDER STATUS
 ====================================================== */
@@ -2551,6 +2745,7 @@ alert(
 }
 
 
+
 /* ======================================================
    CHANGE WHOLE BOOKING STATUS
 ====================================================== */
@@ -2625,6 +2820,7 @@ alert(
 }
 
 }
+
 
 
 /* ======================================================
@@ -2716,6 +2912,7 @@ alert(
 }
 
 }
+
 
 
 /* ======================================================
@@ -2846,6 +3043,7 @@ alert(
 }
 
 
+
 /* ======================================================
    RESET BUTTON
 ====================================================== */
@@ -2858,6 +3056,7 @@ document
 'click',
 resetAllOrders
 );
+
 
 
 /* ======================================================
@@ -2878,6 +3077,7 @@ await loadOrders();
 
 }
 );
+
 
 
 /* ======================================================
@@ -2975,7 +3175,6 @@ alert(
 }
 
 }
-
 );
 
 })();
