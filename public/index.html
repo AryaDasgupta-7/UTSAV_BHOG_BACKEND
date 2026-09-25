@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -9,7 +10,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+>
 
 <style>
 
@@ -185,13 +189,16 @@ input:focus{
   margin-bottom:10px;
 }
 
-/* DAY CARDS */
+
+/* =====================================================
+   DAY CARDS
+   ===================================================== */
 
 .day-card{
   border:1px solid var(--line);
   border-radius:10px;
   background:var(--ivory);
-  margin-bottom:10px;
+  margin-bottom:12px;
   overflow:hidden;
 }
 
@@ -315,10 +322,13 @@ input:focus{
   color:var(--ink);
 }
 
-/* MENU */
+
+/* =====================================================
+   MENU
+   ===================================================== */
 
 .menu-wrapper{
-  padding:0 16px 15px;
+  padding:0 16px 12px;
 }
 
 .menu-toggle{
@@ -364,34 +374,65 @@ input:focus{
   line-height:1.4;
 }
 
-/* LUNCH TYPE */
 
-.lunch-type-row{
-  display:flex;
-  gap:10px;
-  margin-bottom:18px;
+/* =====================================================
+   LUNCH TYPE PER DAY
+   ===================================================== */
+
+.day-lunch-type{
+  padding:0 16px 15px;
 }
 
-.lunch-type-option{
+.day-lunch-label{
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:8px;
+}
+
+.day-lunch-row{
+  display:flex;
+  gap:8px;
+}
+
+.day-lunch-option{
   flex:1;
   border:1px solid var(--line);
-  border-radius:10px;
-  padding:12px 14px;
+  border-radius:9px;
+  padding:9px 7px;
   cursor:pointer;
   text-align:center;
-  background:var(--ivory);
-  font-size:13.5px;
+  background:var(--white);
+  font-size:12px;
   font-weight:600;
   color:var(--ink-soft);
+  transition:
+    background .15s,
+    border-color .15s,
+    color .15s;
 }
 
-.lunch-type-option.selected{
+.day-lunch-option:hover{
+  background:#FFF4E1;
+}
+
+.day-lunch-option.selected{
   border-color:var(--red);
-  background:#FDF6EE;
-  color:var(--red-dark);
+  background:var(--red);
+  color:var(--white);
 }
 
-/* TOTAL */
+.day-lunch-error{
+  color:var(--error);
+  font-size:11.5px;
+  margin-top:5px;
+  min-height:14px;
+}
+
+
+/* =====================================================
+   TOTAL
+   ===================================================== */
 
 .total-row{
   display:flex;
@@ -414,7 +455,10 @@ input:focus{
   color:var(--red-dark);
 }
 
-/* BUTTON */
+
+/* =====================================================
+   BUTTON
+   ===================================================== */
 
 .cta{
   width:100%;
@@ -453,7 +497,10 @@ input:focus{
   cursor:not-allowed;
 }
 
-/* CONFIRMATION */
+
+/* =====================================================
+   CONFIRMATION
+   ===================================================== */
 
 #confirmView{
   text-align:center;
@@ -511,6 +558,17 @@ input:focus{
   font-weight:600;
 }
 
+.day-breakdown .lunch-type-display{
+  display:inline-block;
+  margin-top:4px;
+  font-size:11px;
+  color:var(--red-dark);
+  background:#FBE9DD;
+  border-radius:6px;
+  padding:3px 6px;
+}
+
+
 .summary-box{
   text-align:left;
   background:var(--ivory);
@@ -525,6 +583,7 @@ input:focus{
   justify-content:space-between;
   font-size:14.5px;
   padding:5px 0;
+  gap:15px;
 }
 
 .summary-box .srow.total{
@@ -537,6 +596,11 @@ input:focus{
 
 .summary-box .srow span:first-child{
   color:var(--ink-soft);
+}
+
+.summary-box .srow span:last-child{
+  text-align:right;
+  word-break:break-word;
 }
 
 .note{
@@ -588,6 +652,7 @@ input:focus{
   display:none !important;
 }
 
+
 @media (max-width:480px){
 
   body{
@@ -611,15 +676,6 @@ input:focus{
 
   header h1{
     font-size:22px;
-  }
-
-  .lunch-type-row{
-    gap:8px;
-  }
-
-  .lunch-type-option{
-    padding:10px 8px;
-    font-size:12.5px;
   }
 
   .day-stepper button{
@@ -646,10 +702,26 @@ input:focus{
     padding:0 12px 14px;
   }
 
+  .menu-wrapper{
+    padding-left:12px;
+    padding-right:12px;
+  }
+
+  .day-lunch-type{
+    padding-left:12px;
+    padding-right:12px;
+  }
+
+  .day-lunch-option{
+    font-size:11.5px;
+    padding:10px 5px;
+  }
+
 }
 
 </style>
 </head>
+
 
 <body>
 
@@ -669,10 +741,20 @@ input:focus{
       preserveAspectRatio="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect width="560" height="34" fill="var(--red)"/>
 
-      <g fill="var(--gold-soft)" opacity="0.9">
-        <path d="M0 34
+      <rect
+        width="560"
+        height="34"
+        fill="var(--red)"
+      />
+
+      <g
+        fill="var(--gold-soft)"
+        opacity="0.9"
+      >
+
+        <path d="
+          M0 34
           C20 10,40 10,60 34
           C80 10,100 10,120 34
           C140 10,160 10,180 34
@@ -685,13 +767,18 @@ input:focus{
           C550 20,555 15,560 20
           L560 34
           L0 34
-          Z"/>
+          Z
+        "/>
+
       </g>
+
     </svg>
+
 
     <div class="content">
 
       <header>
+
         <h1>
           Utsav Socio-Cultural Trust<br>
           Lunch Bhog Booking
@@ -700,22 +787,44 @@ input:focus{
         <p>
           Lunch Bhog
         </p>
+
       </header>
 
+
       <div class="divider">
+
         <svg
           viewBox="0 0 24 24"
           fill="var(--gold)"
         >
-          <path d="M12 2 L14 9 L21 9 L15.5 13.5 L17.5 21 L12 16.8 L6.5 21 L8.5 13.5 L3 9 L10 9 Z"/>
+
+          <path d="
+            M12 2
+            L14 9
+            L21 9
+            L15.5 13.5
+            L17.5 21
+            L12 16.8
+            L6.5 21
+            L8.5 13.5
+            L3 9
+            L10 9
+            Z
+          "/>
+
         </svg>
+
       </div>
 
-      <!-- ========================= -->
-      <!-- BOOKING FORM               -->
-      <!-- ========================= -->
+
+      <!-- ==================================================
+           BOOKING FORM
+           ================================================== -->
 
       <div id="formView">
+
+
+        <!-- NAME -->
 
         <div class="field">
 
@@ -737,6 +846,8 @@ input:focus{
 
         </div>
 
+
+        <!-- PHONE -->
 
         <div class="field">
 
@@ -760,6 +871,8 @@ input:focus{
         </div>
 
 
+        <!-- EMAIL -->
+
         <div class="field">
 
           <label for="email">
@@ -781,7 +894,9 @@ input:focus{
         </div>
 
 
-        <!-- DAYS -->
+        <!-- ==================================================
+             DAYS
+             ================================================== -->
 
         <div class="field">
 
@@ -799,45 +914,9 @@ input:focus{
         </div>
 
 
-        <!-- LUNCH TYPE -->
-
-        <div class="field">
-
-          <label class="section-label">
-            Lunch type
-          </label>
-
-          <div
-            class="lunch-type-row"
-            id="lunchTypeRow"
-          >
-
-            <div
-              class="lunch-type-option"
-              data-value="Packing"
-            >
-              Packing
-            </div>
-
-            <div
-              class="lunch-type-option"
-              data-value="Community Lunch (Dine-In)"
-            >
-              Community Lunch<br>
-              (Dine-In)
-            </div>
-
-          </div>
-
-          <div
-            class="err"
-            id="err-lunchtype"
-          ></div>
-
-        </div>
-
-
-        <!-- TOTAL -->
+        <!-- ==================================================
+             TOTAL
+             ================================================== -->
 
         <div class="total-row">
 
@@ -862,6 +941,7 @@ input:focus{
           Continue to PayU
         </button>
 
+
         <div
           class="err"
           id="err-submit"
@@ -871,14 +951,15 @@ input:focus{
       </div>
 
 
-      <!-- ========================= -->
-      <!-- CONFIRM / PAYMENT VIEW    -->
-      <!-- ========================= -->
+      <!-- ==================================================
+           CONFIRM / PAYMENT VIEW
+           ================================================== -->
 
       <div
         id="confirmView"
         class="hidden"
       >
+
 
         <header style="padding-bottom:4px;">
 
@@ -893,15 +974,22 @@ input:focus{
         </header>
 
 
-        <!-- ORDER ID HIDDEN UNTIL PAYMENT -->
+        <!-- ORDER ID WAITING -->
 
         <div
           id="orderIdWaiting"
           class="note"
         >
-          <b>Your special UTSAV Order ID will appear here after your PayU payment is successfully verified.</b>
+
+          <b>
+            Your special UTSAV Order ID will appear here
+            after your PayU payment is successfully verified.
+          </b>
+
         </div>
 
+
+        <!-- FINAL ORDER ID -->
 
         <div
           id="finalOrderBox"
@@ -968,17 +1056,6 @@ input:focus{
           </div>
 
 
-          <div class="srow">
-
-            <span>
-              Lunch type
-            </span>
-
-            <span id="sLunchType"></span>
-
-          </div>
-
-
           <div class="srow total">
 
             <span>
@@ -992,7 +1069,9 @@ input:focus{
         </div>
 
 
-        <!-- PAYU -->
+        <!-- ==================================================
+             PAYU
+             ================================================== -->
 
         <div id="payuSection">
 
@@ -1003,8 +1082,11 @@ input:focus{
             </div>
 
             <div class="payment-only-text">
-              Pay using the payment methods available through PayU,
-              including UPI, cards and net banking.
+
+              Pay using the payment methods available
+              through PayU, including UPI, cards and
+              net banking.
+
             </div>
 
           </div>
@@ -1060,15 +1142,17 @@ input:focus{
             <b>Important:</b>
 
             Your booking will only be confirmed after PayU
-            successfully processes and our server verifies the
-            payment response.
+            successfully processes and our server verifies
+            the payment response.
 
           </div>
 
         </div>
 
 
-        <!-- PAYMENT SUCCESS -->
+        <!-- ==================================================
+             PAYMENT SUCCESS
+             ================================================== -->
 
         <div
           id="paymentConfirmedBanner"
@@ -1083,8 +1167,10 @@ input:focus{
             font-weight:600;
           "
         >
+
           ✓ Payment confirmed!
           Your bhog booking is fully paid.
+
         </div>
 
 
@@ -1100,12 +1186,19 @@ input:focus{
         <p class="contact-note">
 
           For queries contact
-          <b>Mr. Asesh Kumar Dasgupta</b>
+
+          <b>
+            Mr. Asesh Kumar Dasgupta
+          </b>
+
           (995894088)
 
           or
 
-          <b>Mr. Dipankar Ghosh</b>
+          <b>
+            Mr. Dipankar Ghosh
+          </b>
+
           (#no. to be added)
 
         </p>
@@ -1117,6 +1210,7 @@ input:focus{
         >
           Place another order
         </button>
+
 
       </div>
 
@@ -1131,16 +1225,16 @@ input:focus{
 
 (function(){
 
-  /* ==========================================
+  /* ==================================================
      BASIC SETTINGS
-     ========================================== */
+     ================================================== */
 
   const RATE = 500;
 
 
-  /* ==========================================
-     ONLY FOUR BOOKING DAYS
-     ========================================== */
+  /* ==================================================
+     BOOKING DAYS
+     ================================================== */
 
   const DAYS = [
 
@@ -1155,38 +1249,53 @@ input:focus{
   ];
 
 
-  /* ==========================================
+  /* ==================================================
      DATES
-     ========================================== */
+     ================================================== */
 
   const DAY_INFO = {
 
     'Saptami': {
+
       date:'17 October 2026 (Saturday)',
+
       desc:'Saptami'
+
     },
+
 
     'Adhik Saptami': {
+
       date:'18 October 2026 (Sunday)',
+
       desc:'Adhik Saptami'
+
     },
+
 
     'Ashtami': {
+
       date:'19 October 2026 (Monday)',
+
       desc:'Ashtami'
+
     },
 
+
     'Navami': {
+
       date:'20 October 2026 (Tuesday)',
+
       desc:'Navami'
+
     }
 
   };
 
 
-  /* ==========================================
+  /* ==================================================
      MENUS
-     ========================================== */
+     ================================================== */
 
   const MENUS = {
 
@@ -1272,11 +1381,15 @@ input:focus{
   };
 
 
-  /* ==========================================
+  /* ==================================================
      STATE
-     ========================================== */
+
+     IMPORTANT:
+     lunchType is now stored separately for EVERY DAY.
+     ================================================== */
 
   const dayState = {};
+
 
   DAYS.forEach(day => {
 
@@ -1284,14 +1397,14 @@ input:focus{
 
       active:false,
 
-      qty:1
+      qty:1,
+
+      lunchType:null
 
     };
 
   });
 
-
-  let lunchType = null;
 
   let currentBookingId = null;
 
@@ -1301,18 +1414,21 @@ input:focus{
   const daysContainer =
     document.getElementById('daysContainer');
 
+
   const totalDisplay =
     document.getElementById('totalDisplay');
 
 
-  /* ==========================================
+  /* ==================================================
      HTML ESCAPE
-     ========================================== */
+     ================================================== */
 
   function escapeHtml(value){
 
     return String(value).replace(
+
       /[&<>"']/g,
+
       function(ch){
 
         return {
@@ -1330,18 +1446,20 @@ input:focus{
         }[ch];
 
       }
+
     );
 
   }
 
 
-  /* ==========================================
+  /* ==================================================
      MENU HTML
-     ========================================== */
+     ================================================== */
 
   function createMenuHtml(day){
 
     const menu = MENUS[day] || [];
+
 
     return `
 
@@ -1379,9 +1497,74 @@ input:focus{
   }
 
 
-  /* ==========================================
+  /* ==================================================
+     LUNCH TYPE HTML FOR EACH DAY
+     ================================================== */
+
+  function createLunchTypeHtml(day){
+
+    const state = dayState[day];
+
+
+    return `
+
+      <div class="day-lunch-type">
+
+        <div class="day-lunch-label">
+
+          Lunch type for ${escapeHtml(day)}
+
+        </div>
+
+
+        <div class="day-lunch-row">
+
+          <div
+            class="day-lunch-option ${
+              state.lunchType === 'Packing'
+                ? 'selected'
+                : ''
+            }"
+            data-lunch-type="Packing"
+          >
+
+            Packing
+
+          </div>
+
+
+          <div
+            class="day-lunch-option ${
+              state.lunchType === 'Community Lunch (Dine-In)'
+                ? 'selected'
+                : ''
+            }"
+            data-lunch-type="Community Lunch (Dine-In)"
+          >
+
+            Community Lunch<br>
+            (Dine-In)
+
+          </div>
+
+        </div>
+
+
+        <div
+          class="day-lunch-error"
+          id="lunch-error-${escapeHtml(day)}"
+        ></div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ==================================================
      RENDER DAYS
-     ========================================== */
+     ================================================== */
 
   function renderDays(){
 
@@ -1413,9 +1596,11 @@ input:focus{
               <svg
                 viewBox="0 0 16 16"
               >
+
                 <polyline
                   points="2,8 6,12 14,3"
                 ></polyline>
+
               </svg>
 
             </div>
@@ -1424,16 +1609,26 @@ input:focus{
             <div>
 
               <div class="day-name">
+
                 ${escapeHtml(day)}
+
               </div>
+
 
               <div class="day-date">
-                ${escapeHtml(DAY_INFO[day].date)}
+
+                ${escapeHtml(
+                  DAY_INFO[day].date
+                )}
+
               </div>
 
+
               <div class="day-rate">
+
                 ₹${RATE.toLocaleString('en-IN')}
                 per plate
+
               </div>
 
             </div>
@@ -1459,6 +1654,13 @@ input:focus{
         ${createMenuHtml(day)}
 
 
+        ${
+          state.active
+            ? createLunchTypeHtml(day)
+            : ''
+        }
+
+
         <div class="day-body">
 
           <div class="day-stepper">
@@ -1473,7 +1675,9 @@ input:focus{
 
 
             <div class="dqty">
+
               ${state.qty}
+
             </div>
 
 
@@ -1483,6 +1687,7 @@ input:focus{
               aria-label="Increase"
             >
               +
+
             </button>
 
           </div>
@@ -1493,8 +1698,10 @@ input:focus{
             Subtotal:
 
             <b>
+
               ₹${(state.qty * RATE)
                 .toLocaleString('en-IN')}
+
             </b>
 
           </div>
@@ -1504,15 +1711,23 @@ input:focus{
       `;
 
 
-      /* ======================================
+      /* ==================================================
          DAY SELECTION
-         ====================================== */
+         ================================================== */
 
       card
         .querySelector('.day-head')
         .addEventListener('click', () => {
 
           state.active = !state.active;
+
+
+          if(!state.active){
+
+            state.lunchType = null;
+
+          }
+
 
           renderDays();
 
@@ -1521,53 +1736,127 @@ input:focus{
         });
 
 
-      /* ======================================
+      /* ==================================================
          MENU DROPDOWN
-         ====================================== */
+         ================================================== */
 
       const menuButton =
         card.querySelector('.menu-toggle');
+
 
       const menuContent =
         card.querySelector('.menu-content');
 
 
       menuButton.addEventListener(
+
         'click',
+
         function(event){
 
           event.stopPropagation();
 
+
           const open =
             menuContent.classList.toggle('open');
 
+
           menuButton.setAttribute(
+
             'aria-expanded',
+
             open ? 'true' : 'false'
+
           );
 
+
           menuButton.textContent =
+
             open
+
               ? 'Hide Bhog Menu ▴'
+
               : 'View Bhog Menu ▾';
 
         }
+
       );
 
 
-      /* ======================================
+      /* ==================================================
+         LUNCH TYPE SELECTION FOR THIS DAY
+         ================================================== */
+
+      card
+        .querySelectorAll('.day-lunch-option')
+        .forEach(option => {
+
+          option.addEventListener(
+
+            'click',
+
+            function(event){
+
+              event.stopPropagation();
+
+
+              state.lunchType =
+                option.dataset.lunchType;
+
+
+              card
+                .querySelectorAll(
+                  '.day-lunch-option'
+                )
+                .forEach(item => {
+
+                  item.classList.remove(
+                    'selected'
+                  );
+
+                });
+
+
+              option.classList.add(
+                'selected'
+              );
+
+
+              const errorElement =
+                card.querySelector(
+                  '.day-lunch-error'
+                );
+
+
+              if(errorElement){
+
+                errorElement.textContent = '';
+
+              }
+
+            }
+
+          );
+
+        });
+
+
+      /* ==================================================
          QUANTITY - MINUS
-         ====================================== */
+         ================================================== */
 
       const minusBtn =
         card.querySelector('.minus');
 
 
       minusBtn.addEventListener(
+
         'click',
+
         function(event){
 
           event.stopPropagation();
+
 
           if(state.qty > 1){
 
@@ -1580,22 +1869,26 @@ input:focus{
           }
 
         }
+
       );
 
 
-      /* ======================================
+      /* ==================================================
          QUANTITY - PLUS
-         ====================================== */
+         ================================================== */
 
       const plusBtn =
         card.querySelector('.plus');
 
 
       plusBtn.addEventListener(
+
         'click',
+
         function(event){
 
           event.stopPropagation();
+
 
           if(state.qty < 200){
 
@@ -1608,6 +1901,7 @@ input:focus{
           }
 
         }
+
       );
 
 
@@ -1618,9 +1912,9 @@ input:focus{
   }
 
 
-  /* ==========================================
+  /* ==================================================
      TOTAL
-     ========================================== */
+     ================================================== */
 
   function renderTotal(){
 
@@ -1640,6 +1934,7 @@ input:focus{
 
 
     totalDisplay.textContent =
+
       '₹' +
       total.toLocaleString('en-IN');
 
@@ -1651,47 +1946,9 @@ input:focus{
   renderTotal();
 
 
-  /* ==========================================
-     LUNCH TYPE
-     ========================================== */
-
-  document
-    .querySelectorAll('.lunch-type-option')
-    .forEach(option => {
-
-      option.addEventListener(
-        'click',
-        function(){
-
-          lunchType =
-            option.dataset.value;
-
-
-          document
-            .querySelectorAll('.lunch-type-option')
-            .forEach(item => {
-
-              item.classList.remove('selected');
-
-            });
-
-
-          option.classList.add('selected');
-
-
-          document
-            .getElementById('err-lunchtype')
-            .textContent = '';
-
-        }
-      );
-
-    });
-
-
-  /* ==========================================
+  /* ==================================================
      VALIDATION
-     ========================================== */
+     ================================================== */
 
   function validate(){
 
@@ -1722,18 +1979,20 @@ input:focus{
     document.getElementById('err-name')
       .textContent = '';
 
+
     document.getElementById('err-phone')
       .textContent = '';
+
 
     document.getElementById('err-email')
       .textContent = '';
 
+
     document.getElementById('err-days')
       .textContent = '';
 
-    document.getElementById('err-lunchtype')
-      .textContent = '';
 
+    /* NAME */
 
     if(!name){
 
@@ -1746,6 +2005,8 @@ input:focus{
     }
 
 
+    /* PHONE */
+
     if(!/^[6-9]\d{9}$/.test(phone)){
 
       document.getElementById('err-phone')
@@ -1757,6 +2018,8 @@ input:focus{
     }
 
 
+    /* EMAIL */
+
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
 
       document.getElementById('err-email')
@@ -1767,6 +2030,8 @@ input:focus{
 
     }
 
+
+    /* SELECTED DAYS */
 
     const selectedDays =
       DAYS.filter(
@@ -1785,50 +2050,88 @@ input:focus{
     }
 
 
-    if(!lunchType){
+    /* ==================================================
+       CHECK LUNCH TYPE FOR EVERY SELECTED DAY
+       ================================================== */
 
-      document.getElementById('err-lunchtype')
-        .textContent =
-        'Please choose a lunch type.';
+    selectedDays.forEach(day => {
 
-      ok = false;
+      const errorElement =
+        document.getElementById(
+          `lunch-error-${day}`
+        );
+
+
+      if(!dayState[day].lunchType){
+
+        if(errorElement){
+
+          errorElement.textContent =
+            'Please choose Packing or Community Lunch.';
+
+        }
+
+        ok = false;
+
+      }
+
+    });
+
+
+    if(!ok){
+
+      return null;
 
     }
 
 
-    return ok
-      ? {
-          name,
-          phone,
-          email,
-          selectedDays
-        }
-      : null;
+    return {
+
+      name,
+
+      phone,
+
+      email,
+
+      selectedDays
+
+    };
 
   }
 
 
-  /* ==========================================
+  /* ==================================================
      CREATE BOOKING
-     ========================================== */
+     ================================================== */
 
   document
     .getElementById('submitBtn')
     .addEventListener(
+
       'click',
+
       async function(){
 
         const data = validate();
 
-        if(!data) return;
+
+        if(!data){
+
+          return;
+
+        }
 
 
         const submitBtn =
-          document.getElementById('submitBtn');
+          document.getElementById(
+            'submitBtn'
+          );
 
 
         const errSubmit =
-          document.getElementById('err-submit');
+          document.getElementById(
+            'err-submit'
+          );
 
 
         errSubmit.textContent = '';
@@ -1840,16 +2143,27 @@ input:focus{
           'Creating booking…';
 
 
+        /* ==================================================
+           IMPORTANT CHANGE:
+
+           lunchType is now inside EACH day.
+           ================================================== */
+
         const days =
           data.selectedDays.map(
+
             day => ({
 
               day,
 
               qty:
-                dayState[day].qty
+                dayState[day].qty,
+
+              lunchType:
+                dayState[day].lunchType
 
             })
+
           );
 
 
@@ -1857,14 +2171,18 @@ input:focus{
 
           const res =
             await fetch(
+
               '/api/orders',
+
               {
 
                 method:'POST',
 
                 headers:{
+
                   'Content-Type':
                     'application/json'
+
                 },
 
                 body:JSON.stringify({
@@ -1875,13 +2193,12 @@ input:focus{
 
                   email:data.email,
 
-                  lunchType,
-
                   days
 
                 })
 
               }
+
             );
 
 
@@ -1895,27 +2212,22 @@ input:focus{
               result.error ||
               'Something went wrong. Please try again.';
 
+
             submitBtn.disabled = false;
+
 
             submitBtn.textContent =
               'Continue to PayU';
+
 
             return;
 
           }
 
 
-          /*
-           * IMPORTANT:
-           *
-           * We deliberately DO NOT display
-           * result.bookingId here.
-           *
-           * The special/final UTSAV Order ID
-           * must only be shown after payment
-           * verification.
-           */
-
+          /* ==================================================
+             PAYMENT / BOOKING DATA
+             ================================================== */
 
           currentBookingId =
             result.bookingId;
@@ -1944,12 +2256,6 @@ input:focus{
 
 
           document
-            .getElementById('sLunchType')
-            .textContent =
-            result.lunchType;
-
-
-          document
             .getElementById('sTotal')
             .textContent =
             '₹' +
@@ -1964,7 +2270,16 @@ input:focus{
               .toLocaleString('en-IN');
 
 
-          /* DAY BREAKDOWN */
+          /* ==================================================
+             DAY BREAKDOWN
+
+             Shows:
+             - Day
+             - Date
+             - Lunch type
+             - Quantity
+             - Amount
+             ================================================== */
 
           const breakdown =
             document.getElementById(
@@ -1973,7 +2288,9 @@ input:focus{
 
 
           breakdown.innerHTML =
+
             result.orders.map(
+
               order => `
 
                 <div class="drow">
@@ -1981,13 +2298,31 @@ input:focus{
                   <div class="dleft">
 
                     <b>
-                      ${escapeHtml(order.day)}
+
+                      ${escapeHtml(
+                        order.day
+                      )}
+
                     </b>
 
+
                     <span>
+
                       ${escapeHtml(
                         DAY_INFO[order.day].date
                       )}
+
+                    </span>
+
+
+                    <span class="lunch-type-display">
+
+                      ${escapeHtml(
+                        order.lunchType ||
+                        dayState[order.day].lunchType ||
+                        ''
+                      )}
+
                     </span>
 
                   </div>
@@ -2008,10 +2343,13 @@ input:focus{
                 </div>
 
               `
+
             ).join('');
 
 
-          /* SHOW CONFIRM/PAYMENT VIEW */
+          /* ==================================================
+             SHOW CONFIRMATION / PAYMENT VIEW
+             ================================================== */
 
           document
             .getElementById('formView')
@@ -2044,12 +2382,17 @@ input:focus{
 
 
           window.scrollTo({
+
             top:0,
+
             behavior:'smooth'
+
           });
 
 
-        }catch(error){
+        }
+
+        catch(error){
 
           console.error(error);
 
@@ -2060,23 +2403,27 @@ input:focus{
 
           submitBtn.disabled = false;
 
+
           submitBtn.textContent =
             'Continue to PayU';
 
         }
 
       }
+
     );
 
 
-  /* ==========================================
+  /* ==================================================
      PAYU PAYMENT
-     ========================================== */
+     ================================================== */
 
   document
     .getElementById('payuPayBtn')
     .addEventListener(
+
       'click',
+
       async function(){
 
         const errPayu =
@@ -2112,19 +2459,19 @@ input:focus{
 
         try{
 
-          /*
-           * This uses the PayU endpoint
-           * already present in your backend.
-           */
-
           const res =
             await fetch(
+
               `/api/orders/${encodeURIComponent(
                 currentBookingId
               )}/payu-params`,
+
               {
+
                 method:'POST'
+
               }
+
             );
 
 
@@ -2138,32 +2485,22 @@ input:focus{
               result.error ||
               'Unable to start PayU payment.';
 
+
             btn.disabled = false;
+
 
             btn.textContent =
               'Pay securely with PayU';
+
 
             return;
 
           }
 
 
-          /*
-           * PayU hosted checkout.
-           *
-           * The backend supplies:
-           *
-           * key
-           * txnid
-           * amount
-           * productinfo
-           * firstname
-           * email
-           * phone
-           * surl
-           * furl
-           * hash
-           */
+          /* ==================================================
+             PAYU HOSTED CHECKOUT
+             ================================================== */
 
           const form =
             document.createElement(
@@ -2173,6 +2510,7 @@ input:focus{
 
           form.method = 'POST';
 
+
           form.action =
             result.url;
 
@@ -2180,6 +2518,7 @@ input:focus{
           Object
             .entries(result.fields)
             .forEach(
+
               ([name,value]) => {
 
                 const input =
@@ -2190,7 +2529,9 @@ input:focus{
 
                 input.type = 'hidden';
 
+
                 input.name = name;
+
 
                 input.value =
                   value == null
@@ -2201,6 +2542,7 @@ input:focus{
                 form.appendChild(input);
 
               }
+
             );
 
 
@@ -2211,8 +2553,9 @@ input:focus{
 
           form.submit();
 
+        }
 
-        }catch(error){
+        catch(error){
 
           console.error(error);
 
@@ -2223,23 +2566,27 @@ input:focus{
 
           btn.disabled = false;
 
+
           btn.textContent =
             'Pay securely with PayU';
 
         }
 
       }
+
     );
 
 
-  /* ==========================================
+  /* ==================================================
      NEW ORDER
-     ========================================== */
+     ================================================== */
 
   document
     .getElementById('newOrderBtn')
     .addEventListener(
+
       'click',
+
       function(){
 
         document
@@ -2257,74 +2604,77 @@ input:focus{
           .value = '';
 
 
+        /* RESET ALL DAYS */
+
         DAYS.forEach(
+
           day => {
 
             dayState[day] = {
 
               active:false,
 
-              qty:1
+              qty:1,
+
+              lunchType:null
 
             };
 
           }
+
         );
 
-
-        lunchType = null;
 
         currentBookingId = null;
 
         currentTotalAmount = 0;
 
 
+        /* RESET ERRORS */
+
         document
-          .querySelectorAll(
-            '.lunch-type-option'
-          )
-          .forEach(
-            option =>
-              option.classList.remove(
-                'selected'
-              )
-          );
+          .getElementById('err-name')
+          .textContent = '';
 
 
         document
-          .getElementById(
-            'paymentConfirmedBanner'
-          )
-          .classList.add(
-            'hidden'
-          );
+          .getElementById('err-phone')
+          .textContent = '';
 
 
         document
-          .getElementById(
-            'payuSection'
-          )
-          .classList.remove(
-            'hidden'
-          );
+          .getElementById('err-email')
+          .textContent = '';
 
 
         document
-          .getElementById(
-            'finalOrderBox'
-          )
-          .classList.add(
-            'hidden'
-          );
+          .getElementById('err-days')
+          .textContent = '';
 
 
         document
-          .getElementById(
-            'orderIdWaiting'
-          )
-          .classList.remove(
-            'hidden'
-          );
+          .getElementById('err-submit')
+          .textContent = '';
+
+
+        document
+          .getElementById('paymentConfirmedBanner')
+          .classList.add('hidden');
+
+
+        document
+          .getElementById('payuSection')
+          .classList.remove('hidden');
+
+
+        document
+          .getElementById('finalOrderBox')
+          .classList.add('hidden');
+
+
+        document
+          .getElementById('orderIdWaiting')
+          .classList.remove('hidden');
 
 
         const payuBtn =
@@ -2335,48 +2685,35 @@ input:focus{
 
         payuBtn.disabled = false;
 
+
         payuBtn.textContent =
           'Pay securely with PayU';
 
 
         document
-          .getElementById(
-            'err-payu'
-          )
+          .getElementById('err-payu')
           .textContent = '';
 
 
         document
-          .getElementById(
-            'submitBtn'
-          )
+          .getElementById('submitBtn')
           .disabled = false;
 
 
         document
-          .getElementById(
-            'submitBtn'
-          )
+          .getElementById('submitBtn')
           .textContent =
           'Continue to PayU';
 
 
         document
-          .getElementById(
-            'confirmView'
-          )
-          .classList.add(
-            'hidden'
-          );
+          .getElementById('confirmView')
+          .classList.add('hidden');
 
 
         document
-          .getElementById(
-            'formView'
-          )
-          .classList.remove(
-            'hidden'
-          );
+          .getElementById('formView')
+          .classList.remove('hidden');
 
 
         renderDays();
@@ -2385,11 +2722,15 @@ input:focus{
 
 
         window.scrollTo({
+
           top:0,
+
           behavior:'smooth'
+
         });
 
       }
+
     );
 
 
