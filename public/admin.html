@@ -1,448 +1,2499 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
+
 <title>Seller Dashboard — Durga Pujo Bhog</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link
+  rel="preconnect"
+  href="https://fonts.googleapis.com"
+>
+
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+>
+
 <style>
-  :root{
-    --ivory:#FBF3E6; --white:#FFFDF9; --red:#A5303A; --red-dark:#7A2029;
-    --gold:#CE9B3F; --teal:#1F4B3F; --ink:#2A1B14; --ink-soft:#6B5B4E;
-    --line:#DECBAA; --error:#B0392F; --radius:14px;
-  }
-  *{box-sizing:border-box;}
+
+:root{
+  --ivory:#FBF3E6;
+  --white:#FFFDF9;
+  --red:#A5303A;
+  --red-dark:#7A2029;
+  --gold:#CE9B3F;
+  --teal:#1F4B3F;
+  --ink:#2A1B14;
+  --ink-soft:#6B5B4E;
+  --line:#DECBAA;
+  --error:#B0392F;
+  --radius:14px;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  background:var(--ivory);
+  color:var(--ink);
+  font-family:'Work Sans',sans-serif;
+  padding:32px 16px 64px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+.wrap{
+  width:100%;
+  max-width:1000px;
+}
+
+h1{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  color:var(--red-dark);
+  font-size:28px;
+  margin:0 0 4px;
+}
+
+p.sub{
+  color:var(--ink-soft);
+  margin:0 0 24px;
+  font-size:14px;
+}
+
+.card{
+  background:var(--white);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px 24px;
+  margin-bottom:20px;
+}
+
+label{
+  display:block;
+  font-size:13px;
+  font-weight:600;
+  margin-bottom:6px;
+}
+
+input[type=text],
+input[type=password]{
+  width:100%;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--ivory);
+  font-size:16px;
+  font-family:'Work Sans',sans-serif;
+}
+
+input:focus{
+  outline:none;
+  border-color:var(--red);
+  background:var(--white);
+}
+
+button{
+  background:var(--red);
+  color:var(--white);
+  border:none;
+  border-radius:9px;
+  padding:11px 18px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  font-family:'Work Sans',sans-serif;
+}
+
+button:hover{
+  background:var(--red-dark);
+}
+
+button.secondary{
+  background:var(--teal);
+}
+
+button.secondary:hover{
+  background:#163a30;
+}
+
+button.ghost{
+  background:transparent;
+  color:var(--red);
+  border:1px solid var(--red);
+}
+
+button.danger{
+  background:var(--error);
+}
+
+button.danger:hover{
+  background:#8a2b23;
+}
+
+button.ghost-danger{
+  background:transparent;
+  color:var(--error);
+  border:1px solid var(--error);
+}
+
+button.ghost-danger:hover{
+  background:rgba(176,57,47,0.08);
+}
+
+.err{
+  color:var(--error);
+  font-size:13px;
+  margin-top:8px;
+}
+
+.ok{
+  color:var(--teal);
+  font-size:13px;
+  margin-top:8px;
+}
+
+.stat-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  gap:10px;
+  margin-bottom:6px;
+}
+
+.stat{
+  background:var(--ivory);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:14px;
+  text-align:center;
+}
+
+.stat b{
+  display:block;
+  font-family:'Fraunces',serif;
+  font-size:22px;
+  color:var(--teal);
+}
+
+.stat span{
+  font-size:11.5px;
+  color:var(--ink-soft);
+}
+
+.status-pill{
+  padding:3px 9px;
+  border-radius:20px;
+  font-size:11.5px;
+  font-weight:600;
+  display:inline-block;
+}
+
+.status-pending{
+  background:#FBEEE6;
+  color:#A5622F;
+}
+
+.status-paid{
+  background:#E6F1EC;
+  color:var(--teal);
+}
+
+.status-partial{
+  background:#FDF0D5;
+  color:#8A5A12;
+}
+
+.status-failed{
+  background:#F8E4E2;
+  color:var(--error);
+}
+
+.status-btn{
+  font-size:11.5px;
+  padding:5px 9px;
+  border-radius:7px;
+}
+
+.hidden{
+  display:none !important;
+}
+
+.toolbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.orders-wrap{
+  max-height:700px;
+  overflow:auto;
+}
+
+.booking-group{
+  border:1px solid var(--line);
+  border-radius:10px;
+  margin-bottom:14px;
+  overflow:hidden;
+}
+
+.booking-header{
+  background:var(--ivory);
+  padding:14px 16px;
+  display:flex;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:flex-start;
+  border-bottom:1px solid var(--line);
+}
+
+.booking-header .binfo b{
+  font-family:'Fraunces',serif;
+  font-size:15px;
+  color:var(--red-dark);
+}
+
+.booking-meta{
+  font-size:12px;
+  color:var(--ink-soft);
+  margin-top:3px;
+  line-height:1.5;
+}
+
+.booking-total{
+  text-align:right;
+}
+
+.booking-total .btotal-amt{
+  font-family:'Fraunces',serif;
+  font-size:19px;
+  color:var(--teal);
+  margin-top:4px;
+}
+
+.day-table-scroll{
+  overflow-x:auto;
+}
+
+.day-table{
+  width:100%;
+  min-width:760px;
+  border-collapse:collapse;
+  font-size:12.5px;
+}
+
+.day-table th,
+.day-table td{
+  padding:8px 12px;
+  border-bottom:1px solid var(--line);
+  text-align:left;
+  white-space:nowrap;
+}
+
+.day-table th{
+  background:#FBF6EC;
+  font-size:11px;
+  color:var(--ink-soft);
+  text-transform:uppercase;
+  letter-spacing:0.3px;
+}
+
+.day-table td.num{
+  text-align:right;
+}
+
+.day-table tr:last-child td{
+  border-bottom:none;
+}
+
+.booking-footer{
+  padding:10px 16px;
+  background:#FBF6EC;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.payment-box{
+  margin-top:8px;
+  padding:8px 10px;
+  background:#FBF6EC;
+  border:1px solid var(--line);
+  border-radius:8px;
+}
+
+.payment-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+  color:var(--ink-soft);
+}
+
+.payment-value{
+  font-size:12px;
+  color:var(--ink);
+  margin-top:2px;
+  word-break:break-all;
+}
+
+.no-order-id{
+  color:#A5622F;
+  font-style:italic;
+}
+
+@media (max-width:640px){
+
   body{
-    margin:0; background:var(--ivory); color:var(--ink); font-family:'Work Sans', sans-serif;
-    padding:32px 16px 64px; display:flex; flex-direction:column; align-items:center;
+    padding:20px 10px 48px;
   }
-  .wrap{ width:100%; max-width:900px; }
-  h1{ font-family:'Fraunces', serif; font-weight:600; color:var(--red-dark); font-size:28px; margin:0 0 4px; }
-  p.sub{ color:var(--ink-soft); margin:0 0 24px; font-size:14px; }
-  .card{ background:var(--white); border:1px solid var(--line); border-radius:var(--radius); padding:22px 24px; margin-bottom:20px; }
-  label{ display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
-  input[type=text], input[type=password]{
-    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:9px;
-    background:var(--ivory); font-size:16px; font-family:'Work Sans', sans-serif;
-  }
-  input:focus{ outline:none; border-color:var(--red); background:var(--white); }
-  .row{ display:flex; gap:14px; flex-wrap:wrap; }
-  .row > div{ flex:1; min-width:200px; }
-  button{
-    background:var(--red); color:var(--white); border:none; border-radius:9px;
-    padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer; font-family:'Work Sans', sans-serif;
-  }
-  button:hover{ background:var(--red-dark); }
-  button.secondary{ background:var(--teal); }
-  button.secondary:hover{ background:#163a30; }
-  button.ghost{ background:transparent; color:var(--red); border:1px solid var(--red); }
-  button.danger{ background:var(--error); }
-  button.danger:hover{ background:#8a2b23; }
-  button.ghost-danger{ background:transparent; color:var(--error); border:1px solid var(--error); }
-  button.ghost-danger:hover{ background:rgba(176,57,47,0.08); }
-  .err{ color:var(--error); font-size:13px; margin-top:8px; }
-  .ok{ color:var(--teal); font-size:13px; margin-top:8px; }
-  .stat-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:10px; margin-bottom:6px; }
-  .stat{ background:var(--ivory); border:1px solid var(--line); border-radius:10px; padding:14px; text-align:center; }
-  .stat b{ display:block; font-family:'Fraunces', serif; font-size:22px; color:var(--teal); }
-  .stat span{ font-size:11.5px; color:var(--ink-soft); }
-  .status-pill{ padding:3px 9px; border-radius:20px; font-size:11.5px; font-weight:600; display:inline-block; }
-  .status-pending{ background:#FBEEE6; color:#A5622F; }
-  .status-paid{ background:#E6F1EC; color:var(--teal); }
-  .status-partial{ background:#FDF0D5; color:#8A5A12; }
-  .status-btn{ font-size:11.5px; padding:5px 9px; border-radius:7px; }
-  .hidden{ display:none !important; }
-  .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
-  .orders-wrap{ max-height:640px; overflow:auto; }
 
-  .booking-group{
-    border:1px solid var(--line); border-radius:10px; margin-bottom:14px; overflow:hidden;
+  .card{
+    padding:16px 14px;
   }
+
+  h1{
+    font-size:23px;
+  }
+
+  .toolbar{
+    justify-content:flex-start;
+  }
+
+  .toolbar button{
+    flex:1;
+    min-width:0;
+  }
+
   .booking-header{
-    background:var(--ivory); padding:14px 16px; display:flex; justify-content:space-between;
-    flex-wrap:wrap; gap:12px; align-items:flex-start; border-bottom:1px solid var(--line);
+    flex-direction:column;
+    align-items:stretch;
   }
-  .booking-header .binfo b{ font-family:'Fraunces', serif; font-size:15px; color:var(--red-dark); }
-  .booking-meta{ font-size:12px; color:var(--ink-soft); margin-top:3px; line-height:1.5; }
-  .booking-total{ text-align:right; }
-  .booking-total .btotal-amt{ font-family:'Fraunces', serif; font-size:19px; color:var(--teal); margin-top:4px; }
-  .day-table-scroll{ overflow-x:auto; }
-  .day-table{ width:100%; min-width:560px; border-collapse:collapse; font-size:12.5px; }
-  .day-table th, .day-table td{ padding:8px 12px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
-  .day-table th{ background:#FBF6EC; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.3px; }
-  .day-table td.num{ text-align:right; }
-  .day-table tr:last-child td{ border-bottom:none; }
-  .booking-footer{ padding:10px 16px; background:#FBF6EC; display:flex; justify-content:flex-end; }
 
-  @media (max-width: 640px){
-    body{ padding:20px 10px 48px; }
-    .card{ padding:16px 14px; }
-    h1{ font-size:23px; }
-    .row{ gap:10px; }
-    .row > div{ min-width:100%; }
-    .toolbar{ justify-content:flex-start; }
-    .toolbar button{ flex:1; min-width:0; }
-    .booking-header{ flex-direction:column; align-items:stretch; }
-    .booking-total{ text-align:left; }
-    .booking-footer{ flex-wrap:wrap; gap:8px; }
-    .booking-footer button{ flex:1; min-width:130px; }
+  .booking-total{
+    text-align:left;
   }
+
+  .booking-footer{
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .booking-footer button{
+    flex:1;
+    min-width:130px;
+  }
+
+}
+
 </style>
+
 </head>
+
 <body>
+
 <div class="wrap">
+
   <h1>Seller dashboard</h1>
-  <p class="sub">Manage your UPI details and review every Durga Pujo bhog booking.</p>
 
-  <div class="card" id="loginCard">
-    <label for="apiKeyInput">Admin API key</label>
-    <input type="password" id="apiKeyInput" placeholder="Paste your ADMIN_API_KEY">
-    <div style="margin-top:12px;"><button id="loginBtn">View dashboard</button></div>
-    <div class="err" id="loginErr"></div>
-  </div>
+  <p class="sub">
+    Manage and review every Durga Pujo bhog booking and PayU payment.
+  </p>
 
-  <div id="dashboard" class="hidden">
-    <div class="card">
-      <h2 style="font-family:'Fraunces',serif; font-size:18px; margin:0 0 14px; color:var(--red-dark);">UPI receiving details</h2>
-      <div class="row">
-        <div>
-          <label for="upiIdInput">UPI ID</label>
-          <input type="text" id="upiIdInput" placeholder="e.g. seller@okaxis">
-        </div>
-        <div>
-          <label for="payeeNameInput">Payee name shown to devotees</label>
-          <input type="text" id="payeeNameInput" placeholder="e.g. Sarbojanin Durga Puja Samiti">
-        </div>
-      </div>
-      <div style="margin-top:14px;"><button class="secondary" id="saveSettingsBtn">Save UPI details</button></div>
-      <div class="ok hidden" id="settingsMsg"></div>
+
+  <!-- =====================================================
+       LOGIN
+  ====================================================== -->
+
+  <div
+    class="card"
+    id="loginCard"
+  >
+
+    <label for="apiKeyInput">
+      Admin API key
+    </label>
+
+    <input
+      type="password"
+      id="apiKeyInput"
+      placeholder="Paste your ADMIN_API_KEY"
+    >
+
+    <div style="margin-top:12px;">
+
+      <button id="loginBtn">
+        View dashboard
+      </button>
+
     </div>
 
+    <div
+      class="err"
+      id="loginErr"
+    ></div>
+
+  </div>
+
+
+  <!-- =====================================================
+       DASHBOARD
+  ====================================================== -->
+
+  <div
+    id="dashboard"
+    class="hidden"
+  >
+
+
+    <!-- =================================================
+         PAYMENT INFORMATION
+    ================================================== -->
+
     <div class="card">
+
+      <h2
+        style="
+          font-family:'Fraunces',serif;
+          font-size:18px;
+          margin:0 0 8px;
+          color:var(--red-dark);
+        "
+      >
+        PayU Payment Gateway
+      </h2>
+
+      <p
+        style="
+          color:var(--ink-soft);
+          font-size:13px;
+          margin:0;
+          line-height:1.6;
+        "
+      >
+
+        Customer payments are processed through
+        <strong>PayU</strong>.
+
+        <br>
+
+        Payment status is updated after the server
+        verifies the PayU response.
+
+        <br>
+
+        UPI QR codes, UTR/reference numbers and
+        payment screenshots are no longer used.
+
+      </p>
+
+    </div>
+
+
+    <!-- =================================================
+         STATISTICS
+    ================================================== -->
+
+    <div class="card">
+
       <div class="stat-grid">
-        <div class="stat"><b id="statBookings">0</b><span>Total bookings</span></div>
-        <div class="stat"><b id="statOrders">0</b><span>Day-orders</span></div>
-        <div class="stat"><b id="statPlates">0</b><span>Total plates</span></div>
-        <div class="stat"><b id="statAmount">₹0</b><span>Amount expected</span></div>
-        <div class="stat"><b id="statPaid">₹0</b><span>Amount confirmed paid</span></div>
+
+        <div class="stat">
+
+          <b id="statBookings">
+            0
+          </b>
+
+          <span>
+            Total bookings
+          </span>
+
+        </div>
+
+
+        <div class="stat">
+
+          <b id="statOrders">
+            0
+          </b>
+
+          <span>
+            Day-orders
+          </span>
+
+        </div>
+
+
+        <div class="stat">
+
+          <b id="statPlates">
+            0
+          </b>
+
+          <span>
+            Total plates
+          </span>
+
+        </div>
+
+
+        <div class="stat">
+
+          <b id="statAmount">
+            ₹0
+          </b>
+
+          <span>
+            Amount expected
+          </span>
+
+        </div>
+
+
+        <div class="stat">
+
+          <b id="statPaid">
+            ₹0
+          </b>
+
+          <span>
+            Amount confirmed paid
+          </span>
+
+        </div>
+
       </div>
+
     </div>
 
+
+    <!-- =================================================
+         BOOKINGS
+    ================================================== -->
+
     <div class="card">
+
       <div class="toolbar">
-        <h2 style="font-family:'Fraunces',serif; font-size:18px; margin:0; color:var(--red-dark);">Bookings</h2>
-        <div style="display:flex; gap:10px;">
-          <button class="ghost" id="refreshBtn">Refresh</button>
-          <button id="exportBtn">Export CSV</button>
-          <button class="danger" id="resetAllBtn">Reset all orders</button>
+
+        <h2
+          style="
+            font-family:'Fraunces',serif;
+            font-size:18px;
+            margin:0;
+            color:var(--red-dark);
+          "
+        >
+          Bookings
+        </h2>
+
+
+        <div
+          style="
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+          "
+        >
+
+          <button
+            class="ghost"
+            id="refreshBtn"
+          >
+            Refresh
+          </button>
+
+
+          <button
+            id="exportBtn"
+          >
+            Export CSV
+          </button>
+
+
+          <button
+            class="danger"
+            id="resetAllBtn"
+          >
+            Reset all orders
+          </button>
+
         </div>
+
       </div>
-      <div class="orders-wrap" id="ordersContainer"></div>
-      <div class="err" id="ordersErr"></div>
+
+
+      <div
+        class="orders-wrap"
+        id="ordersContainer"
+      ></div>
+
+
+      <div
+        class="err"
+        id="ordersErr"
+      ></div>
+
     </div>
+
   </div>
+
 </div>
 
+
 <script>
+
 (function(){
-  let apiKey = sessionStorage.getItem('bhogAdminKey') || '';
+
+  /*
+   * ======================================================
+   * ADMIN STATE
+   * ======================================================
+   */
+
+  let apiKey =
+    sessionStorage.getItem(
+      'bhogAdminKey'
+    ) || '';
+
+
+  /*
+   * ======================================================
+   * AUTH HEADERS
+   * ======================================================
+   */
 
   function authHeaders(){
-    return { 'x-api-key': apiKey, 'Content-Type': 'application/json' };
+
+    return {
+
+      'x-api-key':
+        apiKey,
+
+      'Content-Type':
+        'application/json'
+
+    };
+
   }
+
+
+  /*
+   * ======================================================
+   * INITIAL LOGIN / DASHBOARD LOAD
+   * ======================================================
+   */
 
   async function tryLoad(){
-    const loginErr = document.getElementById('loginErr');
+
+    const loginErr =
+      document.getElementById(
+        'loginErr'
+      );
+
     loginErr.textContent = '';
+
+
     try{
-      const res = await fetch('/api/admin/stats', { headers: authHeaders() });
+
+      const res =
+        await fetch(
+          '/api/admin/stats',
+          {
+            headers:
+              authHeaders()
+          }
+        );
+
+
       if(!res.ok){
-        loginErr.textContent = 'Incorrect API key.';
+
+        loginErr.textContent =
+          'Incorrect API key.';
+
         return false;
+
       }
-      sessionStorage.setItem('bhogAdminKey', apiKey);
-      document.getElementById('loginCard').classList.add('hidden');
-      document.getElementById('dashboard').classList.remove('hidden');
-      await loadSettings();
+
+
+      sessionStorage.setItem(
+        'bhogAdminKey',
+        apiKey
+      );
+
+
+      document
+        .getElementById(
+          'loginCard'
+        )
+        .classList
+        .add('hidden');
+
+
+      document
+        .getElementById(
+          'dashboard'
+        )
+        .classList
+        .remove('hidden');
+
+
       await loadStats();
+
       await loadOrders();
+
+
       return true;
+
+
     }catch(e){
-      loginErr.textContent = 'Could not reach the server.';
+
+      console.error(e);
+
+      loginErr.textContent =
+        'Could not reach the server.';
+
       return false;
+
     }
+
   }
 
-  document.getElementById('loginBtn').addEventListener('click', ()=>{
-    apiKey = document.getElementById('apiKeyInput').value.trim();
-    if(!apiKey){ document.getElementById('loginErr').textContent = 'Enter your admin API key.'; return; }
+
+  /*
+   * ======================================================
+   * LOGIN BUTTON
+   * ======================================================
+   */
+
+  document
+    .getElementById(
+      'loginBtn'
+    )
+    .addEventListener(
+      'click',
+      function(){
+
+        apiKey =
+          document
+            .getElementById(
+              'apiKeyInput'
+            )
+            .value
+            .trim();
+
+
+        if(!apiKey){
+
+          document
+            .getElementById(
+              'loginErr'
+            )
+            .textContent =
+              'Enter your admin API key.';
+
+          return;
+
+        }
+
+
+        tryLoad();
+
+      }
+    );
+
+
+  /*
+   * ======================================================
+   * AUTO LOGIN
+   * ======================================================
+   */
+
+  if(apiKey){
+
     tryLoad();
-  });
 
-  if(apiKey){ tryLoad(); }
-
-  async function loadSettings(){
-    try{
-      const res = await fetch('/api/settings');
-      const s = await res.json();
-      document.getElementById('upiIdInput').value = s.upiId || '';
-      document.getElementById('payeeNameInput').value = s.payeeName || '';
-    }catch(e){}
   }
 
-  document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
-    const msg = document.getElementById('settingsMsg');
-    msg.classList.remove('hidden');
-    msg.textContent = 'Saving…';
-    try{
-      const res = await fetch('/api/admin/settings', {
-        method:'POST', headers: authHeaders(),
-        body: JSON.stringify({
-          upiId: document.getElementById('upiIdInput').value,
-          payeeName: document.getElementById('payeeNameInput').value
-        })
-      });
-      if(res.ok){ msg.textContent = 'Saved.'; }
-      else{ msg.textContent = 'Could not save. Please check your API key.'; }
-    }catch(e){ msg.textContent = 'Could not reach the server.'; }
-  });
+
+  /*
+   * ======================================================
+   * LOAD STATISTICS
+   * ======================================================
+   */
 
   async function loadStats(){
+
     try{
-      const res = await fetch('/api/admin/stats', { headers: authHeaders() });
-      const s = await res.json();
-      document.getElementById('statBookings').textContent = s.totalBookings;
-      document.getElementById('statOrders').textContent = s.totalOrders;
-      document.getElementById('statPlates').textContent = s.totalPlates;
-      document.getElementById('statAmount').textContent = '₹' + s.totalAmount.toLocaleString('en-IN');
-      document.getElementById('statPaid').textContent = '₹' + s.paidAmount.toLocaleString('en-IN');
-    }catch(e){}
+
+      const res =
+        await fetch(
+          '/api/admin/stats',
+          {
+            headers:
+              authHeaders()
+          }
+        );
+
+
+      if(!res.ok){
+
+        return;
+
+      }
+
+
+      const s =
+        await res.json();
+
+
+      document
+        .getElementById(
+          'statBookings'
+        )
+        .textContent =
+          Number(
+            s.totalBookings || 0
+          );
+
+
+      document
+        .getElementById(
+          'statOrders'
+        )
+        .textContent =
+          Number(
+            s.totalOrders || 0
+          );
+
+
+      document
+        .getElementById(
+          'statPlates'
+        )
+        .textContent =
+          Number(
+            s.totalPlates || 0
+          );
+
+
+      document
+        .getElementById(
+          'statAmount'
+        )
+        .textContent =
+          '₹' +
+          Number(
+            s.totalAmount || 0
+          ).toLocaleString(
+            'en-IN'
+          );
+
+
+      document
+        .getElementById(
+          'statPaid'
+        )
+        .textContent =
+          '₹' +
+          Number(
+            s.paidAmount || 0
+          ).toLocaleString(
+            'en-IN'
+          );
+
+
+    }catch(e){
+
+      console.error(
+        'Stats error:',
+        e
+      );
+
+    }
+
   }
+
+
+  /*
+   * ======================================================
+   * HTML ESCAPING
+   * ======================================================
+   */
 
   function escapeHtml(str){
-    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+
+    return String(
+      str == null
+        ? ''
+        : str
+    ).replace(
+      /[&<>"']/g,
+      function(s){
+
+        return {
+
+          '&':
+            '&amp;',
+
+          '<':
+            '&lt;',
+
+          '>':
+            '&gt;',
+
+          '"':
+            '&quot;',
+
+          "'":
+            '&#39;'
+
+        }[s];
+
+      }
+    );
+
   }
 
-  // Groups the flat list of day-orders into one array per bookingId,
-  // preserving the order they arrived in (already newest-first from the API).
-  function groupByBooking(orders){
-    const map = new Map();
-    for(const o of orders){
-      const key = o.bookingId || o.orderId;
-      if(!map.has(key)) map.set(key, []);
-      map.get(key).push(o);
+
+  /*
+   * ======================================================
+   * GROUP BOOKINGS
+   * ======================================================
+   *
+   * One customer booking may contain
+   * multiple days.
+   *
+   * Example:
+   *
+   * PENDING-123
+   *   ├── Saptami
+   *   ├── Ashtami
+   *   └── Navami
+   *
+   */
+
+  function groupByBooking(
+    orders
+  ){
+
+    const map =
+      new Map();
+
+
+    for(
+      const order
+      of orders
+    ){
+
+      const key =
+        order.bookingId ||
+        order.finalBookingId ||
+        order.orderId ||
+        (
+          order._id ||
+          Math.random()
+        );
+
+
+      if(
+        !map.has(key)
+      ){
+
+        map.set(
+          key,
+          []
+        );
+
+      }
+
+
+      map
+        .get(key)
+        .push(order);
+
     }
-    return Array.from(map.values());
+
+
+    return Array
+      .from(
+        map.values()
+      );
+
   }
 
-  function renderBookingGroup(group){
-    const first = group[0];
-    const totalAmount = group.reduce((s,o)=>s+o.amount, 0);
-    const totalPlates = group.reduce((s,o)=>s+o.qty, 0);
-    const allPaid = group.every(o => o.status === 'paid');
-    const allPending = group.every(o => o.status === 'pending');
-    const overallLabel = allPaid ? 'All paid' : (allPending ? 'All pending' : 'Partially paid');
-    const overallClass = allPaid ? 'status-paid' : (allPending ? 'status-pending' : 'status-partial');
-    const placed = new Date(first.createdAt).toLocaleString('en-IN');
 
-    const wrap = document.createElement('div');
-    wrap.className = 'booking-group';
+  /*
+   * ======================================================
+   * PAYMENT STATUS
+   * ======================================================
+   */
 
-    const utrLine = first.utr ? ` · UTR: ${escapeHtml(first.utr)}` : '';
-    const screenshotLine = first.screenshotUrl
-      ? ` · <a href="${first.screenshotUrl}" target="_blank" rel="noopener">View payment screenshot</a>`
-      : '';
+  function getGroupPaymentStatus(
+    group
+  ){
+
+    const paid =
+      group.filter(
+        order =>
+          order.status === 'paid' ||
+          order.paymentStatus === 'paid' ||
+          order.paymentStatus === 'success'
+      ).length;
+
+
+    if(
+      paid === group.length
+    ){
+
+      return {
+
+        label:
+          'PAID',
+
+        className:
+          'status-paid'
+
+      };
+
+    }
+
+
+    if(
+      paid === 0
+    ){
+
+      const failed =
+        group.some(
+          order =>
+            order.paymentStatus === 'failed' ||
+            order.status === 'failed'
+        );
+
+
+      if(failed){
+
+        return {
+
+          label:
+            'PAYMENT FAILED',
+
+          className:
+            'status-failed'
+
+        };
+
+      }
+
+
+      return {
+
+        label:
+          'PAYMENT PENDING',
+
+        className:
+          'status-pending'
+
+      };
+
+    }
+
+
+    return {
+
+      label:
+        'PARTIALLY PAID',
+
+      className:
+        'status-partial'
+
+    };
+
+  }
+
+
+  /*
+   * ======================================================
+   * RENDER BOOKING GROUP
+   * ======================================================
+   */
+
+  function renderBookingGroup(
+    group
+  ){
+
+    const first =
+      group[0];
+
+
+    const totalAmount =
+      group.reduce(
+        function(
+          sum,
+          order
+        ){
+
+          return (
+            sum +
+            Number(
+              order.amount || 0
+            )
+          );
+
+        },
+        0
+      );
+
+
+    const totalPlates =
+      group.reduce(
+        function(
+          sum,
+          order
+        ){
+
+          return (
+            sum +
+            Number(
+              order.qty || 0
+            )
+          );
+
+        },
+        0
+      );
+
+
+    const payment =
+      getGroupPaymentStatus(
+        group
+      );
+
+
+    const placed =
+      first.createdAt
+        ? new Date(
+            first.createdAt
+          ).toLocaleString(
+            'en-IN'
+          )
+        : '';
+
+
+    /*
+     * Final booking ID.
+     *
+     * The backend should only populate
+     * this after successful PayU payment.
+     */
+
+    const finalBookingId =
+      first.finalBookingId ||
+      first.bookingFinalId ||
+      first.bookingOrderId ||
+      (
+        group.find(
+          order =>
+            order.finalBookingId ||
+            order.bookingFinalId ||
+            order.bookingOrderId
+        ) || {}
+      ).finalBookingId ||
+      null;
+
+
+    /*
+     * Some backend versions use
+     * finalOrderId instead.
+     */
+
+    const finalOrderId =
+      finalBookingId ||
+      first.finalOrderId ||
+      (
+        group.find(
+          order =>
+            order.finalOrderId
+        ) || {}
+      ).finalOrderId ||
+      null;
+
+
+    /*
+     * PayU transaction ID.
+     */
+
+    const payuTxnId =
+      first.payuTxnId ||
+      first.payuTransactionId ||
+      (
+        group.find(
+          order =>
+            order.payuTxnId ||
+            order.payuTransactionId
+        ) || {}
+      ).payuTxnId ||
+      null;
+
+
+    /*
+     * PayU payment ID.
+     */
+
+    const payuPaymentId =
+      first.payuPaymentId ||
+      first.mihpayid ||
+      first.payuId ||
+      (
+        group.find(
+          order =>
+            order.payuPaymentId ||
+            order.mihpayid ||
+            order.payuId
+        ) || {}
+      ).payuPaymentId ||
+      null;
+
+
+    /*
+     * Create booking card.
+     */
+
+    const wrap =
+      document.createElement(
+        'div'
+      );
+
+
+    wrap.className =
+      'booking-group';
+
 
     wrap.innerHTML = `
+
       <div class="booking-header">
+
         <div class="binfo">
-          <b>${escapeHtml(first.bookingId || first.orderId)}</b>
-          <div class="booking-meta">${escapeHtml(first.name)} · ${escapeHtml(first.phone)} · ${escapeHtml(first.email)}</div>
-          <div class="booking-meta">${escapeHtml(first.lunchType || '')} · Placed ${placed}${utrLine}${screenshotLine}</div>
+
+          <b>
+
+            ${
+              finalOrderId
+                ? escapeHtml(
+                    finalOrderId
+                  )
+                : `
+                  <span class="no-order-id">
+                    Order ID generated after successful payment
+                  </span>
+                `
+            }
+
+          </b>
+
+
+          <div class="booking-meta">
+
+            ${escapeHtml(
+              first.name || ''
+            )}
+
+            ·
+
+            ${escapeHtml(
+              first.phone || ''
+            )}
+
+            ·
+
+            ${escapeHtml(
+              first.email || ''
+            )}
+
+          </div>
+
+
+          <div class="booking-meta">
+
+            ${escapeHtml(
+              first.lunchType || ''
+            )}
+
+            ·
+
+            Placed ${escapeHtml(
+              placed
+            )}
+
+          </div>
+
+
+          <div
+            class="payment-box"
+          >
+
+            <div
+              class="payment-label"
+            >
+              PayU Transaction ID
+            </div>
+
+            <div
+              class="payment-value"
+            >
+              ${
+                payuTxnId
+                  ? escapeHtml(
+                      payuTxnId
+                    )
+                  : '—'
+              }
+            </div>
+
+          </div>
+
+
+          <div
+            class="payment-box"
+          >
+
+            <div
+              class="payment-label"
+            >
+              PayU Payment ID
+            </div>
+
+            <div
+              class="payment-value"
+            >
+              ${
+                payuPaymentId
+                  ? escapeHtml(
+                      payuPaymentId
+                    )
+                  : '—'
+              }
+            </div>
+
+          </div>
+
         </div>
+
+
         <div class="booking-total">
-          <span class="status-pill ${overallClass}">${overallLabel}</span>
-          <div class="btotal-amt">₹${totalAmount.toLocaleString('en-IN')}</div>
-          <div class="booking-meta">${totalPlates} plate(s) across ${group.length} day(s)</div>
+
+          <span
+            class="status-pill ${payment.className}"
+          >
+            ${payment.label}
+          </span>
+
+
+          <div
+            class="btotal-amt"
+          >
+            ₹${totalAmount.toLocaleString('en-IN')}
+          </div>
+
+
+          <div
+            class="booking-meta"
+          >
+            ${totalPlates}
+            plate(s)
+            across
+            ${group.length}
+            day(s)
+          </div>
+
         </div>
+
       </div>
-      <div class="day-table-scroll">
-        <table class="day-table">
+
+
+      <div
+        class="day-table-scroll"
+      >
+
+        <table
+          class="day-table"
+        >
+
           <thead>
-            <tr><th>Day</th><th class="num">Plates</th><th class="num">Amount</th><th>Order ID</th><th>Status</th><th></th></tr>
+
+            <tr>
+
+              <th>
+                Day
+              </th>
+
+              <th class="num">
+                Plates
+              </th>
+
+              <th class="num">
+                Amount
+              </th>
+
+              <th>
+                UTSAV Order ID
+              </th>
+
+              <th>
+                Payment
+              </th>
+
+              <th>
+                PayU ID
+              </th>
+
+              <th>
+              </th>
+
+            </tr>
+
           </thead>
+
+
           <tbody></tbody>
+
         </table>
+
       </div>
-      <div class="booking-footer"></div>
+
+
+      <div
+        class="booking-footer"
+      ></div>
+
     `;
 
-    const tbody = wrap.querySelector('tbody');
-    for(const o of group){
-      const tr = document.createElement('tr');
-      const pillClass = o.status === 'paid' ? 'status-paid' : 'status-pending';
+
+    /*
+     * ====================================================
+     * DAY ROWS
+     * ====================================================
+     */
+
+    const tbody =
+      wrap.querySelector(
+        'tbody'
+      );
+
+
+    for(
+      const order
+      of group
+    ){
+
+      const tr =
+        document.createElement(
+          'tr'
+        );
+
+
+      const isPaid =
+        order.status === 'paid' ||
+        order.paymentStatus === 'paid' ||
+        order.paymentStatus === 'success';
+
+
+      const isFailed =
+        order.status === 'failed' ||
+        order.paymentStatus === 'failed';
+
+
+      const pillClass =
+        isPaid
+          ? 'status-paid'
+          : (
+              isFailed
+                ? 'status-failed'
+                : 'status-pending'
+            );
+
+
+      const statusText =
+        isPaid
+          ? 'PAID'
+          : (
+              isFailed
+                ? 'FAILED'
+                : 'PENDING'
+            );
+
+
+      /*
+       * Day-level final Order ID.
+       */
+
+      const dayOrderId =
+        order.orderId ||
+        order.finalOrderId ||
+        null;
+
+
+      /*
+       * Day-level PayU ID.
+       */
+
+      const rowPayuId =
+        order.payuPaymentId ||
+        order.mihpayid ||
+        order.payuId ||
+        payuPaymentId ||
+        null;
+
+
       tr.innerHTML = `
-        <td>${escapeHtml(o.day || '')}</td>
-        <td class="num">${o.qty}</td>
-        <td class="num">₹${o.amount.toLocaleString('en-IN')}</td>
-        <td>${escapeHtml(o.orderId)}</td>
-        <td><span class="status-pill ${pillClass}">${o.status}</span></td>
+
+        <td>
+
+          ${escapeHtml(
+            order.day || ''
+          )}
+
+        </td>
+
+
+        <td class="num">
+
+          ${Number(
+            order.qty || 0
+          )}
+
+        </td>
+
+
+        <td class="num">
+
+          ₹${Number(
+            order.amount || 0
+          ).toLocaleString(
+            'en-IN'
+          )}
+
+        </td>
+
+
+        <td>
+
+          ${
+            dayOrderId
+              ? escapeHtml(
+                  dayOrderId
+                )
+              : `
+                <span class="no-order-id">
+                  Available after payment
+                </span>
+              `
+          }
+
+        </td>
+
+
+        <td>
+
+          <span
+            class="status-pill ${pillClass}"
+          >
+
+            ${statusText}
+
+          </span>
+
+        </td>
+
+
+        <td>
+
+          ${
+            rowPayuId
+              ? escapeHtml(
+                  rowPayuId
+                )
+              : '—'
+          }
+
+        </td>
+
       `;
-      const actionTd = document.createElement('td');
-      const btn = document.createElement('button');
-      btn.className = 'ghost status-btn';
-      btn.textContent = o.status === 'paid' ? 'Mark pending' : 'Mark paid';
-      btn.addEventListener('click', () => toggleStatus(o.orderId, o.status));
-      actionTd.appendChild(btn);
-      tr.appendChild(actionTd);
-      tbody.appendChild(tr);
+
+
+      /*
+       * Action button.
+       */
+
+      const actionTd =
+        document.createElement(
+          'td'
+        );
+
+
+      const btn =
+        document.createElement(
+          'button'
+        );
+
+
+      btn.className =
+        'ghost status-btn';
+
+
+      btn.textContent =
+        isPaid
+          ? 'Mark pending'
+          : 'Mark paid';
+
+
+      /*
+       * Only send an actual order ID
+       * when one exists.
+       *
+       * If the booking is pending and
+       * has no final order ID, use its
+       * internal bookingId.
+       */
+
+      const statusIdentifier =
+        order.orderId ||
+        order.finalOrderId ||
+        order._id ||
+        null;
+
+
+      if(statusIdentifier){
+
+        btn.addEventListener(
+          'click',
+          function(){
+
+            toggleStatus(
+              statusIdentifier,
+              isPaid
+                ? 'paid'
+                : 'pending'
+            );
+
+          }
+        );
+
+
+      }else{
+
+        btn.disabled = true;
+
+        btn.title =
+          'Payment has not created a final order ID yet.';
+
+        btn.style.opacity =
+          '0.5';
+
+        btn.textContent =
+          'Awaiting payment';
+
+      }
+
+
+      actionTd.appendChild(
+        btn
+      );
+
+
+      tr.appendChild(
+        actionTd
+      );
+
+
+      tbody.appendChild(
+        tr
+      );
+
     }
 
-    const footer = wrap.querySelector('.booking-footer');
-    footer.style.gap = '10px';
-    if(first.bookingId){
-      const bulkBtn = document.createElement('button');
-      bulkBtn.className = 'secondary status-btn';
-      bulkBtn.textContent = allPaid ? 'Mark whole booking pending' : 'Mark whole booking paid';
-      bulkBtn.addEventListener('click', () => toggleBookingStatus(first.bookingId, allPaid));
-      footer.appendChild(bulkBtn);
 
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'ghost-danger status-btn';
-      deleteBtn.textContent = 'Delete this booking';
-      deleteBtn.addEventListener('click', () => deleteBooking(first.bookingId));
-      footer.appendChild(deleteBtn);
+    /*
+     * ====================================================
+     * FOOTER ACTIONS
+     * ====================================================
+     */
+
+    const footer =
+      wrap.querySelector(
+        '.booking-footer'
+      );
+
+
+    /*
+     * Internal booking ID.
+     */
+
+    const bookingId =
+      first.bookingId ||
+      null;
+
+
+    if(bookingId){
+
+      /*
+       * Whole booking status.
+       */
+
+      const bulkBtn =
+        document.createElement(
+          'button'
+        );
+
+
+      bulkBtn.className =
+        'secondary status-btn';
+
+
+      const allPaid =
+        group.every(
+          order =>
+            order.status === 'paid' ||
+            order.paymentStatus === 'paid' ||
+            order.paymentStatus === 'success'
+        );
+
+
+      bulkBtn.textContent =
+        allPaid
+          ? 'Mark whole booking pending'
+          : 'Mark whole booking paid';
+
+
+      bulkBtn.addEventListener(
+        'click',
+        function(){
+
+          toggleBookingStatus(
+            bookingId,
+            allPaid
+          );
+
+        }
+      );
+
+
+      footer.appendChild(
+        bulkBtn
+      );
+
+
+      /*
+       * Delete booking.
+       */
+
+      const deleteBtn =
+        document.createElement(
+          'button'
+        );
+
+
+      deleteBtn.className =
+        'ghost-danger status-btn';
+
+
+      deleteBtn.textContent =
+        'Delete this booking';
+
+
+      deleteBtn.addEventListener(
+        'click',
+        function(){
+
+          deleteBooking(
+            bookingId
+          );
+
+        }
+      );
+
+
+      footer.appendChild(
+        deleteBtn
+      );
+
     }
+
 
     return wrap;
+
   }
+
+
+  /*
+   * ======================================================
+   * LOAD ORDERS
+   * ======================================================
+   */
 
   async function loadOrders(){
-    const container = document.getElementById('ordersContainer');
-    const errEl = document.getElementById('ordersErr');
+
+    const container =
+      document.getElementById(
+        'ordersContainer'
+      );
+
+
+    const errEl =
+      document.getElementById(
+        'ordersErr'
+      );
+
+
     errEl.textContent = '';
-    container.innerHTML = '<p style="color:var(--ink-soft); font-size:13px;">Loading…</p>';
-    try{
-      const res = await fetch('/api/admin/orders', { headers: authHeaders() });
-      const data = await res.json();
-      const orders = data.orders || [];
-      if(orders.length === 0){
-        container.innerHTML = '<p style="color:var(--ink-soft); font-size:13px;">No bookings yet.</p>';
-        return;
-      }
-      const groups = groupByBooking(orders);
-      container.innerHTML = '';
-      for(const group of groups){
-        container.appendChild(renderBookingGroup(group));
-      }
-    }catch(e){
-      errEl.textContent = 'Could not load orders.';
-      container.innerHTML = '<p style="color:var(--ink-soft); font-size:13px;">Could not load orders.</p>';
-    }
-  }
 
-  async function toggleStatus(orderId, currentStatus){
-    const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
-    try{
-      await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
-        method:'POST', headers: authHeaders(), body: JSON.stringify({ status: newStatus })
-      });
-      await loadStats();
-      await loadOrders();
-    }catch(e){}
-  }
 
-  async function toggleBookingStatus(bookingId, currentlyAllPaid){
-    const newStatus = currentlyAllPaid ? 'pending' : 'paid';
-    try{
-      await fetch(`/api/admin/bookings/${encodeURIComponent(bookingId)}/status`, {
-        method:'POST', headers: authHeaders(), body: JSON.stringify({ status: newStatus })
-      });
-      await loadStats();
-      await loadOrders();
-    }catch(e){}
-  }
+    container.innerHTML =
+      `
+        <p
+          style="
+            color:var(--ink-soft);
+            font-size:13px;
+          "
+        >
+          Loading…
+        </p>
+      `;
 
-  // Deletes one booking (and all its day-orders). Double-checked: the person
-  // must re-type the exact admin API key before this fires, even though
-  // they're already logged in — a deliberate extra guard against a stray click.
-  async function deleteBooking(bookingId){
-    const entered = prompt(`This will permanently delete booking ${bookingId} and all its day-orders.\n\nType your admin API key to confirm:`);
-    if(entered === null) return; // cancelled
-    if(entered !== apiKey){
-      alert('That key did not match. Nothing was deleted.');
-      return;
-    }
+
     try{
-      const res = await fetch(`/api/admin/bookings/${encodeURIComponent(bookingId)}`, {
-        method:'DELETE', headers: authHeaders()
-      });
+
+      const res =
+        await fetch(
+          '/api/admin/orders',
+          {
+            headers:
+              authHeaders()
+          }
+        );
+
+
       if(!res.ok){
-        const result = await res.json().catch(()=>({}));
-        alert(result.error || 'Could not delete this booking.');
-        return;
+
+        throw new Error(
+          'Could not load orders'
+        );
+
       }
-      await loadStats();
-      await loadOrders();
+
+
+      const data =
+        await res.json();
+
+
+      const orders =
+        data.orders || [];
+
+
+      if(
+        orders.length === 0
+      ){
+
+        container.innerHTML =
+          `
+            <p
+              style="
+                color:var(--ink-soft);
+                font-size:13px;
+              "
+            >
+              No bookings yet.
+            </p>
+          `;
+
+        return;
+
+      }
+
+
+      const groups =
+        groupByBooking(
+          orders
+        );
+
+
+      container.innerHTML =
+        '';
+
+
+      for(
+        const group
+        of groups
+      ){
+
+        container.appendChild(
+          renderBookingGroup(
+            group
+          )
+        );
+
+      }
+
+
     }catch(e){
-      alert('Could not reach the server.');
+
+      console.error(e);
+
+
+      errEl.textContent =
+        'Could not load orders.';
+
+
+      container.innerHTML =
+        `
+          <p
+            style="
+              color:var(--ink-soft);
+              font-size:13px;
+            "
+          >
+            Could not load orders.
+          </p>
+        `;
+
     }
+
   }
 
-  // Deletes every booking and order. Double-checked with two separate
-  // prompts — re-typing the admin key, then a typed confirmation phrase —
-  // since this is irreversible and affects everything, not just one booking.
+
+  /*
+   * ======================================================
+   * CHANGE SINGLE ORDER STATUS
+   * ======================================================
+   */
+
+  async function toggleStatus(
+    orderId,
+    currentStatus
+  ){
+
+    const newStatus =
+      currentStatus === 'paid'
+        ? 'pending'
+        : 'paid';
+
+
+    try{
+
+      const res =
+        await fetch(
+          `/api/admin/orders/${encodeURIComponent(orderId)}/status`,
+          {
+
+            method:
+              'POST',
+
+            headers:
+              authHeaders(),
+
+            body:
+              JSON.stringify({
+                status:
+                  newStatus
+              })
+
+          }
+        );
+
+
+      if(!res.ok){
+
+        const result =
+          await res
+            .json()
+            .catch(
+              () => ({})
+            );
+
+
+        alert(
+          result.error ||
+          'Could not update payment status.'
+        );
+
+        return;
+
+      }
+
+
+      await loadStats();
+
+      await loadOrders();
+
+
+    }catch(e){
+
+      console.error(e);
+
+      alert(
+        'Could not reach the server.'
+      );
+
+    }
+
+  }
+
+
+  /*
+   * ======================================================
+   * CHANGE WHOLE BOOKING STATUS
+   * ======================================================
+   */
+
+  async function toggleBookingStatus(
+    bookingId,
+    currentlyAllPaid
+  ){
+
+    const newStatus =
+      currentlyAllPaid
+        ? 'pending'
+        : 'paid';
+
+
+    try{
+
+      const res =
+        await fetch(
+          `/api/admin/bookings/${encodeURIComponent(bookingId)}/status`,
+          {
+
+            method:
+              'POST',
+
+            headers:
+              authHeaders(),
+
+            body:
+              JSON.stringify({
+                status:
+                  newStatus
+              })
+
+          }
+        );
+
+
+      if(!res.ok){
+
+        const result =
+          await res
+            .json()
+            .catch(
+              () => ({})
+            );
+
+
+        alert(
+          result.error ||
+          'Could not update booking status.'
+        );
+
+        return;
+
+      }
+
+
+      await loadStats();
+
+      await loadOrders();
+
+
+    }catch(e){
+
+      console.error(e);
+
+      alert(
+        'Could not reach the server.'
+      );
+
+    }
+
+  }
+
+
+  /*
+   * ======================================================
+   * DELETE SINGLE BOOKING
+   * ======================================================
+   */
+
+  async function deleteBooking(
+    bookingId
+  ){
+
+    const entered =
+      prompt(
+        `This will permanently delete booking ${bookingId} and all its day-orders.\n\nType your admin API key to confirm:`
+      );
+
+
+    if(
+      entered === null
+    ){
+
+      return;
+
+    }
+
+
+    if(
+      entered !== apiKey
+    ){
+
+      alert(
+        'That key did not match. Nothing was deleted.'
+      );
+
+      return;
+
+    }
+
+
+    try{
+
+      const res =
+        await fetch(
+          `/api/admin/bookings/${encodeURIComponent(bookingId)}`,
+          {
+
+            method:
+              'DELETE',
+
+            headers:
+              authHeaders()
+
+          }
+        );
+
+
+      if(!res.ok){
+
+        const result =
+          await res
+            .json()
+            .catch(
+              () => ({})
+            );
+
+
+        alert(
+          result.error ||
+          'Could not delete this booking.'
+        );
+
+        return;
+
+      }
+
+
+      await loadStats();
+
+      await loadOrders();
+
+
+    }catch(e){
+
+      console.error(e);
+
+      alert(
+        'Could not reach the server.'
+      );
+
+    }
+
+  }
+
+
+  /*
+   * ======================================================
+   * RESET ALL ORDERS
+   * ======================================================
+   */
+
   async function resetAllOrders(){
-    const enteredKey = prompt('This will PERMANENTLY DELETE every booking and order in the system.\n\nType your admin API key to confirm:');
-    if(enteredKey === null) return;
-    if(enteredKey !== apiKey){
-      alert('That key did not match. Nothing was deleted.');
+
+    const enteredKey =
+      prompt(
+        'This will PERMANENTLY DELETE every booking and order in the system.\n\nType your admin API key to confirm:'
+      );
+
+
+    if(
+      enteredKey === null
+    ){
+
       return;
+
     }
-    const phrase = prompt('Last step. Type exactly: DELETE ALL\n\n(this cannot be undone)');
-    if(phrase === null) return;
-    if(phrase !== 'DELETE ALL'){
-      alert('That did not match "DELETE ALL". Nothing was deleted.');
+
+
+    if(
+      enteredKey !== apiKey
+    ){
+
+      alert(
+        'That key did not match. Nothing was deleted.'
+      );
+
       return;
+
     }
+
+
+    const phrase =
+      prompt(
+        'Last step. Type exactly: DELETE ALL\n\n(this cannot be undone)'
+      );
+
+
+    if(
+      phrase === null
+    ){
+
+      return;
+
+    }
+
+
+    if(
+      phrase !== 'DELETE ALL'
+    ){
+
+      alert(
+        'That did not match "DELETE ALL". Nothing was deleted.'
+      );
+
+      return;
+
+    }
+
+
     try{
-      const res = await fetch('/api/admin/orders', {
-        method:'DELETE', headers: authHeaders(), body: JSON.stringify({ confirm: 'DELETE ALL' })
-      });
-      const result = await res.json().catch(()=>({}));
+
+      const res =
+        await fetch(
+          '/api/admin/orders',
+          {
+
+            method:
+              'DELETE',
+
+            headers:
+              authHeaders(),
+
+            body:
+              JSON.stringify({
+                confirm:
+                  'DELETE ALL'
+              })
+
+          }
+        );
+
+
+      const result =
+        await res
+          .json()
+          .catch(
+            () => ({})
+          );
+
+
       if(!res.ok){
-        alert(result.error || 'Could not reset orders.');
+
+        alert(
+          result.error ||
+          'Could not reset orders.'
+        );
+
         return;
+
       }
-      alert(`Deleted ${result.deletedCount} order(s).`);
+
+
+      alert(
+        `Deleted ${result.deletedCount || 0} order(s).`
+      );
+
+
       await loadStats();
+
       await loadOrders();
+
+
     }catch(e){
-      alert('Could not reach the server.');
+
+      console.error(e);
+
+      alert(
+        'Could not reach the server.'
+      );
+
     }
+
   }
 
-  document.getElementById('resetAllBtn').addEventListener('click', resetAllOrders);
 
-  document.getElementById('refreshBtn').addEventListener('click', ()=>{ loadStats(); loadOrders(); });
+  /*
+   * ======================================================
+   * RESET BUTTON
+   * ======================================================
+   */
 
-  document.getElementById('exportBtn').addEventListener('click', async ()=>{
-    try{
-      const res = await fetch('/api/admin/orders/export', { headers: authHeaders() });
-      if(!res.ok) return;
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'bhog-orders.csv';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }catch(e){}
-  });
+  document
+    .getElementById(
+      'resetAllBtn'
+    )
+    .addEventListener(
+      'click',
+      resetAllOrders
+    );
+
+
+  /*
+   * ======================================================
+   * REFRESH BUTTON
+   * ======================================================
+   */
+
+  document
+    .getElementById(
+      'refreshBtn'
+    )
+    .addEventListener(
+      'click',
+      async function(){
+
+        await loadStats();
+
+        await loadOrders();
+
+      }
+    );
+
+
+  /*
+   * ======================================================
+   * EXPORT CSV
+   * ======================================================
+   */
+
+  document
+    .getElementById(
+      'exportBtn'
+    )
+    .addEventListener(
+      'click',
+      async function(){
+
+        try{
+
+          const res =
+            await fetch(
+              '/api/admin/orders/export',
+              {
+                headers:
+                  authHeaders()
+              }
+            );
+
+
+          if(!res.ok){
+
+            const result =
+              await res
+                .json()
+                .catch(
+                  () => ({})
+                );
+
+
+            alert(
+              result.error ||
+              'Could not export orders.'
+            );
+
+            return;
+
+          }
+
+
+          const blob =
+            await res.blob();
+
+
+          const url =
+            URL.createObjectURL(
+              blob
+            );
+
+
+          const a =
+            document.createElement(
+              'a'
+            );
+
+
+          a.href =
+            url;
+
+
+          a.download =
+            'bhog-orders.csv';
+
+
+          document
+            .body
+            .appendChild(a);
+
+
+          a.click();
+
+
+          a.remove();
+
+
+          URL.revokeObjectURL(
+            url
+          );
+
+
+        }catch(e){
+
+          console.error(e);
+
+          alert(
+            'Could not reach the server.'
+          );
+
+        }
+
+      }
+    );
+
 })();
+
 </script>
+
 </body>
+
 </html>
