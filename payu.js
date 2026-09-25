@@ -1,344 +1,246 @@
 const crypto = require('crypto');
 
-
 /*
-|--------------------------------------------------------------------------
-| PAYU CONFIGURATION
-|--------------------------------------------------------------------------
-*/
+ * ============================================================
+ * PAYU CONFIGURATION
+ * ============================================================
+ */
 
 function isConfigured() {
-
   return Boolean(
-
     process.env.PAYU_MERCHANT_KEY &&
-
     process.env.PAYU_SALT
-
   );
-
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| MODE
-|--------------------------------------------------------------------------
-*/
 
 function getMode() {
-
-  return (
-    process.env.PAYU_MODE ||
-    'test'
-  ).toLowerCase();
-
+  return String(
+    process.env.PAYU_MODE || 'test'
+  ).trim().toLowerCase();
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| PAYU PAYMENT URL
-|--------------------------------------------------------------------------
-*/
-
 function getPaymentUrl() {
-
-  if (
-    getMode() ===
-    'production'
-  ) {
-
+  if (getMode() === 'production') {
     return 'https://secure.payu.in/_payment';
-
   }
 
   return 'https://test.payu.in/_payment';
-
 }
 
 
 /*
-|--------------------------------------------------------------------------
-| REQUEST HASH
-|--------------------------------------------------------------------------
-|
-| key|txnid|amount|productinfo|firstname|email|
-| udf1|udf2|udf3|udf4|udf5||||||SALT
-|
-|--------------------------------------------------------------------------
-*/
+ * ============================================================
+ * PAYU REQUEST HASH
+ * ============================================================
+ *
+ * PayU formula:
+ *
+ * sha512(
+ *   key|
+ *   txnid|
+ *   amount|
+ *   productinfo|
+ *   firstname|
+ *   email|
+ *   udf1|
+ *   udf2|
+ *   udf3|
+ *   udf4|
+ *   udf5|
+ *   ||||||
+ *   SALT
+ * )
+ *
+ * We are not using UDF fields, so all five UDF
+ * positions are empty.
+ *
+ * IMPORTANT:
+ * The six pipes after udf5 are also required.
+ * ============================================================
+ */
 
 function generateRequestHash({
-
   key,
-
   txnid,
-
   amount,
-
   productinfo,
-
   firstname,
-
   email,
-
   salt
-
 }) {
 
-  const parts = [
+  const cleanKey = String(key || '').trim();
+  const cleanTxnid = String(txnid || '').trim();
+  const cleanAmount = String(amount || '').trim();
+  const cleanProductinfo = String(productinfo || '').trim();
+  const cleanFirstname = String(firstname || '').trim();
+  const cleanEmail = String(email || '').trim();
+  const cleanSalt = String(salt || '').trim();
 
-    key,
+  const hashString =
+    cleanKey +
+    '|' +
+    cleanTxnid +
+    '|' +
+    cleanAmount +
+    '|' +
+    cleanProductinfo +
+    '|' +
+    cleanFirstname +
+    '|' +
+    cleanEmail +
+    '|' +
+    '' +
+    '|' +
+    '' +
+    '|' +
+    '' +
+    '|' +
+    '' +
+    '|' +
+    '' +
+    '||||||' +
+    cleanSalt;
 
-    txnid,
-
-    amount,
-
-    productinfo,
-
-    firstname,
-
-    email,
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    salt
-
-  ];
-
+  console.log(
+    'PayU hash input:',
+    hashString.replace(cleanSalt, '[SALT_HIDDEN]')
+  );
 
   return crypto
-
-    .createHash(
-      'sha512'
-    )
-
-    .update(
-      parts.join('|')
-    )
-
-    .digest('hex');
-
+    .createHash('sha512')
+    .update(hashString, 'utf8')
+    .digest('hex')
+    .toLowerCase();
 }
 
 
 /*
-|--------------------------------------------------------------------------
-| RESPONSE HASH
-|--------------------------------------------------------------------------
-*/
+ * ============================================================
+ * PAYU RESPONSE HASH
+ * ============================================================
+ *
+ * PayU response formula:
+ *
+ * sha512(
+ *   SALT|
+ *   status|
+ *   ||||||
+ *   udf5|
+ *   udf4|
+ *   udf3|
+ *   udf2|
+ *   udf1|
+ *   email|
+ *   firstname|
+ *   productinfo|
+ *   amount|
+ *   txnid|
+ *   key
+ * )
+ *
+ * ============================================================
+ */
 
 function generateResponseHash({
-
   key,
-
   txnid,
-
   amount,
-
   productinfo,
-
   firstname,
-
   email,
-
   status,
-
   salt
-
 }) {
 
-  const parts = [
+  const cleanKey = String(key || '').trim();
+  const cleanTxnid = String(txnid || '').trim();
+  const cleanAmount = String(amount || '').trim();
+  const cleanProductinfo = String(productinfo || '').trim();
+  const cleanFirstname = String(firstname || '').trim();
+  const cleanEmail = String(email || '').trim();
+  const cleanStatus = String(status || '').trim();
+  const cleanSalt = String(salt || '').trim();
 
-    salt,
-
-    status,
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    '',
-
-    email,
-
-    firstname,
-
-    productinfo,
-
-    amount,
-
-    txnid,
-
-    key
-
-  ];
-
+  const hashString =
+    cleanSalt +
+    '|' +
+    cleanStatus +
+    '||||||' +
+    '' +
+    '|' +
+    '' +
+    '|' +
+    '' +
+    '|' +
+    '' +
+    '|' +
+    '' +
+    '|' +
+    cleanEmail +
+    '|' +
+    cleanFirstname +
+    '|' +
+    cleanProductinfo +
+    '|' +
+    cleanAmount +
+    '|' +
+    cleanTxnid +
+    '|' +
+    cleanKey;
 
   return crypto
-
-    .createHash(
-      'sha512'
-    )
-
-    .update(
-      parts.join('|')
-    )
-
-    .digest('hex');
-
+    .createHash('sha512')
+    .update(hashString, 'utf8')
+    .digest('hex')
+    .toLowerCase();
 }
 
 
 /*
-|--------------------------------------------------------------------------
-| VERIFY PAYU RESPONSE
-|--------------------------------------------------------------------------
-*/
+ * ============================================================
+ * VERIFY PAYU RESPONSE
+ * ============================================================
+ */
 
 function verifyResponseHash(fields) {
 
-  const salt =
-    process.env.PAYU_SALT;
-
+  const salt = process.env.PAYU_SALT;
 
   if (!salt) {
-
-    return false;
-
-  }
-
-
-  if (
-    !fields ||
-    !fields.hash
-  ) {
-
-    return false;
-
-  }
-
-
-  const expected =
-    generateResponseHash({
-
-      key:
-        fields.key,
-
-      txnid:
-        fields.txnid,
-
-      amount:
-        fields.amount,
-
-      productinfo:
-        fields.productinfo,
-
-      firstname:
-        fields.firstname,
-
-      email:
-        fields.email,
-
-      status:
-        fields.status,
-
-      salt
-
-    });
-
-
-  /*
-   * Timing-safe comparison.
-   */
-
-  try {
-
-    const expectedBuffer =
-      Buffer.from(
-        expected,
-        'hex'
-      );
-
-    const receivedBuffer =
-      Buffer.from(
-        fields.hash,
-        'hex'
-      );
-
-
-    if (
-      expectedBuffer.length !==
-      receivedBuffer.length
-    ) {
-
-      return false;
-
-    }
-
-
-    return crypto.timingSafeEqual(
-      expectedBuffer,
-      receivedBuffer
+    console.error(
+      'PAYU_SALT is missing.'
     );
 
-  } catch (error) {
-
     return false;
-
   }
 
+  const expectedHash =
+    generateResponseHash({
+      ...fields,
+      salt
+    });
+
+  const receivedHash =
+    String(fields.hash || '')
+      .trim()
+      .toLowerCase();
+
+  return expectedHash === receivedHash;
 }
 
 
+/*
+ * ============================================================
+ * EXPORTS
+ * ============================================================
+ */
+
 module.exports = {
-
   isConfigured,
-
   getMode,
-
   getPaymentUrl,
-
   generateRequestHash,
-
   generateResponseHash,
-
   verifyResponseHash
-
 };
-
