@@ -1,65 +1,344 @@
-// PayU India (redirect/hosted-checkout) integration.
-//
-// Flow: our server computes a hash (using the merchant salt, which never
-// leaves the server) and hands the customer's browser a form that
-// auto-submits to PayU's hosted payment page. PayU later redirects the
-// browser back to our /payu/callback with the result — and we verify THAT
-// with a second, different hash before ever marking anything as paid.
-// Trusting the redirect without checking this hash would let anyone fake a
-// "successful" payment just by crafting their own POST to our callback.
+<pre><code>const crypto = require('crypto');
 
-const crypto = require('crypto');
+
+/*
+|--------------------------------------------------------------------------
+| PAYU CONFIGURATION
+|--------------------------------------------------------------------------
+*/
 
 function isConfigured() {
-  return !!(process.env.PAYU_MERCHANT_KEY && process.env.PAYU_SALT);
+
+  return Boolean(
+
+    process.env.PAYU_MERCHANT_KEY &&
+
+    process.env.PAYU_SALT
+
+  );
+
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| MODE
+|--------------------------------------------------------------------------
+*/
 
 function getMode() {
-  return (process.env.PAYU_MODE || 'test').toLowerCase();
+
+  return (
+    process.env.PAYU_MODE ||
+    'test'
+  ).toLowerCase();
+
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| PAYU PAYMENT URL
+|--------------------------------------------------------------------------
+*/
 
 function getPaymentUrl() {
-  return getMode() === 'production'
-    ? 'https://secure.payu.in/_payment'
-    : 'https://test.payu.in/_payment';
+
+  if (
+    getMode() ===
+    'production'
+  ) {
+
+    return 'https://secure.payu.in/_payment';
+
+  }
+
+  return 'https://test.payu.in/_payment';
+
 }
 
-// PayU's documented request-hash formula:
-// sha512(key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT)
-// Built with array.join so the pipe count can't drift by a typo.
-function generateRequestHash({ key, txnid, amount, productinfo, firstname, email, salt }) {
+
+/*
+|--------------------------------------------------------------------------
+| REQUEST HASH
+|--------------------------------------------------------------------------
+|
+| key|txnid|amount|productinfo|firstname|email|
+| udf1|udf2|udf3|udf4|udf5||||||SALT
+|
+|--------------------------------------------------------------------------
+*/
+
+function generateRequestHash({
+
+  key,
+
+  txnid,
+
+  amount,
+
+  productinfo,
+
+  firstname,
+
+  email,
+
+  salt
+
+}) {
+
   const parts = [
-    key, txnid, amount, productinfo, firstname, email,
-    '', '', '', '', '', // udf1-udf5, unused
-    '', '', '', '', '',  // 5 reserved empty fields before SALT
+
+    key,
+
+    txnid,
+
+    amount,
+
+    productinfo,
+
+    firstname,
+
+    email,
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
     salt
+
   ];
-  return crypto.createHash('sha512').update(parts.join('|')).digest('hex');
+
+
+  return crypto
+
+    .createHash(
+      'sha512'
+    )
+
+    .update(
+      parts.join('|')
+    )
+
+    .digest('hex');
+
 }
 
-// PayU's documented response (reverse) hash formula:
-// sha512(SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key)
-function generateResponseHash({ key, txnid, amount, productinfo, firstname, email, status, salt }) {
+
+/*
+|--------------------------------------------------------------------------
+| RESPONSE HASH
+|--------------------------------------------------------------------------
+*/
+
+function generateResponseHash({
+
+  key,
+
+  txnid,
+
+  amount,
+
+  productinfo,
+
+  firstname,
+
+  email,
+
+  status,
+
+  salt
+
+}) {
+
   const parts = [
-    salt, status,
-    '', '', '', '', '', // 5 reserved empty fields, then udf5-udf1
-    '', '', '', '', '',  // udf5-udf1, unused
-    email, firstname, productinfo, amount, txnid, key
+
+    salt,
+
+    status,
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    '',
+
+    email,
+
+    firstname,
+
+    productinfo,
+
+    amount,
+
+    txnid,
+
+    key
+
   ];
-  return crypto.createHash('sha512').update(parts.join('|')).digest('hex');
+
+
+  return crypto
+
+    .createHash(
+      'sha512'
+    )
+
+    .update(
+      parts.join('|')
+    )
+
+    .digest('hex');
+
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| VERIFY PAYU RESPONSE
+|--------------------------------------------------------------------------
+*/
 
 function verifyResponseHash(fields) {
-  const salt = process.env.PAYU_SALT;
-  if (!salt) return false;
-  const expected = generateResponseHash({ ...fields, salt });
-  return expected === fields.hash;
+
+  const salt =
+    process.env.PAYU_SALT;
+
+
+  if (!salt) {
+
+    return false;
+
+  }
+
+
+  if (
+    !fields ||
+    !fields.hash
+  ) {
+
+    return false;
+
+  }
+
+
+  const expected =
+    generateResponseHash({
+
+      key:
+        fields.key,
+
+      txnid:
+        fields.txnid,
+
+      amount:
+        fields.amount,
+
+      productinfo:
+        fields.productinfo,
+
+      firstname:
+        fields.firstname,
+
+      email:
+        fields.email,
+
+      status:
+        fields.status,
+
+      salt
+
+    });
+
+
+  /*
+   * Timing-safe comparison.
+   */
+
+  try {
+
+    const expectedBuffer =
+      Buffer.from(
+        expected,
+        'hex'
+      );
+
+    const receivedBuffer =
+      Buffer.from(
+        fields.hash,
+        'hex'
+      );
+
+
+    if (
+      expectedBuffer.length !==
+      receivedBuffer.length
+    ) {
+
+      return false;
+
+    }
+
+
+    return crypto.timingSafeEqual(
+      expectedBuffer,
+      receivedBuffer
+    );
+
+  } catch (error) {
+
+    return false;
+
+  }
+
 }
 
+
 module.exports = {
+
   isConfigured,
+
   getMode,
+
   getPaymentUrl,
+
   generateRequestHash,
+
+  generateResponseHash,
+
   verifyResponseHash
+
 };
+</code></pre>
