@@ -163,345 +163,337 @@ function cleanString(value) {
 |
 */
 
-app.post(
-  '/api/orders',
-  async (req, res) => {
+app.post('/api/orders', async (req, res) => {
 
-    try {
+  try {
 
-      const {
-        name,
-        phone,
-        email,
-        lunchType,
-        days
-      } = req.body || {};
+    const {
+      name,
+      phone,
+      email,
+      lunchType,
+      days
+    } = req.body || {};
 
+    /* -----------------------------
+       VALIDATE CUSTOMER
+    ----------------------------- */
 
-      /*
-       * Name
-       */
-
-      if (
-        !name ||
-        typeof name !== 'string' ||
-        !name.trim()
-      ) {
-
-        return res
-          .status(400)
-          .json({
-            error:
-              'Name is required.'
-          });
-
-      }
+    if (
+      !name ||
+      typeof name !== 'string' ||
+      !name.trim()
+    ) {
+      return res.status(400).json({
+        error: 'Name is required.'
+      });
+    }
 
 
-      /*
-       * Phone
-       */
+    const cleanPhone =
+      String(phone || '').trim();
 
-      const cleanPhone =
-        cleanString(phone);
-
-      if (
-        !/^[6-9]\d{9}$/.test(
-          cleanPhone
-        )
-      ) {
-
-        return res
-          .status(400)
-          .json({
-            error:
-              'Enter a valid 10-digit Indian mobile number.'
-          });
-
-      }
+    if (
+      !/^[6-9]\d{9}$/.test(cleanPhone)
+    ) {
+      return res.status(400).json({
+        error:
+          'Enter a valid 10-digit Indian mobile number.'
+      });
+    }
 
 
-      /*
-       * Email
-       */
+    const cleanEmail =
+      String(email || '').trim();
 
-      const cleanEmail =
-        cleanString(email);
-
-      if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/
-          .test(cleanEmail)
-      ) {
-
-        return res
-          .status(400)
-          .json({
-            error:
-              'Enter a valid email address.'
-          });
-
-      }
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        cleanEmail
+      )
+    ) {
+      return res.status(400).json({
+        error:
+          'Enter a valid email address.'
+      });
+    }
 
 
-      /*
-       * Lunch type
-       */
+    /* -----------------------------
+       VALIDATE LUNCH TYPE
+    ----------------------------- */
 
-      if (
-        !VALID_LUNCH_TYPES
-          .includes(lunchType)
-      ) {
-
-        return res
-          .status(400)
-          .json({
-            error:
-              'Please choose a lunch type.'
-          });
-
-      }
+    if (
+      !VALID_LUNCH_TYPES.includes(
+        lunchType
+      )
+    ) {
+      return res.status(400).json({
+        error:
+          'Please choose a lunch type.'
+      });
+    }
 
 
-      /*
-       * Days
-       */
+    /* -----------------------------
+       VALIDATE DAYS
+    ----------------------------- */
 
-      if (
-        !Array.isArray(days) ||
-        days.length === 0
-      ) {
-
-        return res
-          .status(400)
-          .json({
-            error:
-              'Please select at least one day.'
-          });
-
-      }
+    if (
+      !Array.isArray(days) ||
+      days.length === 0
+    ) {
+      return res.status(400).json({
+        error:
+          'Please select at least one day.'
+      });
+    }
 
 
-      const seenDays =
-        new Set();
+    const seenDays =
+      new Set();
 
-      const cleanDays = [];
+    const cleanDays =
+      [];
 
 
-      for (
-        const entry of days
-      ) {
+    for (
+      const entry
+      of days
+    ) {
 
-        const day =
+      const day =
+        entry &&
+        entry.day;
+
+      const qtyNum =
+        parseInt(
           entry &&
-          entry.day;
-
-        const qty =
-          parseInt(
-            entry &&
-            entry.qty,
-            10
-          );
+          entry.qty,
+          10
+        );
 
 
-        if (
-          !VALID_DAYS
-            .includes(day)
-        ) {
-
-          return res
-            .status(400)
-            .json({
-              error:
-                `"${day}" is not a valid booking day.`
-            });
-
-        }
+      if (
+        !VALID_DAYS.includes(day)
+      ) {
+        return res.status(400).json({
+          error:
+            `"${day}" is not a valid booking day.`
+        });
+      }
 
 
-        if (
-          seenDays.has(day)
-        ) {
-
-          return res
-            .status(400)
-            .json({
-              error:
-                `"${day}" was selected more than once.`
-            });
-
-        }
+      if (
+        seenDays.has(day)
+      ) {
+        return res.status(400).json({
+          error:
+            `"${day}" was selected more than once.`
+        });
+      }
 
 
-        if (
-          !Number.isInteger(qty) ||
-          qty < 1 ||
-          qty > 200
-        ) {
-
-          return res
-            .status(400)
-            .json({
-              error:
-                `Enter a valid number of plates for ${day} (1-200).`
-            });
-
-        }
+      if (
+        !Number.isInteger(qtyNum) ||
+        qtyNum < 1 ||
+        qtyNum > 200
+      ) {
+        return res.status(400).json({
+          error:
+            `Enter a valid number of plates for ${day} (1-200).`
+        });
+      }
 
 
-        seenDays.add(day);
+      seenDays.add(day);
 
-        cleanDays.push({
+
+      cleanDays.push({
+        day,
+        qty: qtyNum
+      });
+
+    }
+
+
+    /* -----------------------------
+       CREATE INTERNAL BOOKING ID
+
+       IMPORTANT:
+       This is NOT the final customer
+       UTSAV Order ID.
+
+       It exists only so PayU can
+       identify the pending booking.
+    ----------------------------- */
+
+    const bookingId =
+      generateBookingId();
+
+
+    const createdAt =
+      new Date().toISOString();
+
+
+    const cleanName =
+      name.trim();
+
+
+    /* -----------------------------
+       CREATE PENDING DAY ORDERS
+
+       DO NOT generate final
+       customer-facing order IDs here.
+
+       They are generated only after
+       successful PayU payment.
+    ----------------------------- */
+
+    const dayOrders =
+      cleanDays.map(
+        ({
           day,
           qty
-        });
+        }) => ({
 
-      }
+          bookingId,
 
+          day,
 
-      /*
-       * INTERNAL BOOKING ID
-       *
-       * This is NOT shown to the customer
-       * as their final Order ID.
-       */
+          lunchType,
 
-      const bookingId =
-        generateInternalBookingId();
+          name:
+            cleanName,
 
+          phone:
+            cleanPhone,
 
-      const createdAt =
-        new Date().toISOString();
+          email:
+            cleanEmail,
 
+          qty,
 
-      const cleanName =
-        cleanString(name);
+          amount:
+            qty * RATE_PER_PLATE,
 
+          status:
+            'pending',
 
-      /*
-       * Create one MongoDB document
-       * per selected day.
-       */
+          createdAt
 
-      const dayOrders =
-        cleanDays.map(
-          ({
-            day,
-            qty
-          }) => ({
-
-            bookingId,
-
-            /*
-             * orderId is null until payment
-             * succeeds.
-             */
-            orderId: null,
-
-            day,
-
-            lunchType,
-
-            name: cleanName,
-
-            phone: cleanPhone,
-
-            email: cleanEmail,
-
-            qty,
-
-            amount:
-              qty *
-              RATE_PER_PLATE,
-
-            status: 'pending',
-
-            paymentStatus:
-              'pending',
-
-            createdAt
-
-          })
-        );
+        })
+      );
 
 
-      const totalAmount =
-        dayOrders.reduce(
-          (
-            sum,
-            order
-          ) =>
-            sum +
-            order.amount,
-          0
-        );
+    /* -----------------------------
+       TOTAL AMOUNT
+    ----------------------------- */
+
+    const totalAmount =
+      dayOrders.reduce(
+        (
+          sum,
+          order
+        ) =>
+          sum +
+          order.amount,
+        0
+      );
 
 
-      /*
-       * Save pending booking.
-       */
+    /* -----------------------------
+       SAVE TO MONGODB
+    ----------------------------- */
+
+    try {
 
       await ordersCollection()
         .insertMany(
           dayOrders
         );
 
-
-      /*
-       * Send only the information
-       * required by the frontend.
-       *
-       * The internal bookingId is returned
-       * only so the frontend can initiate PayU.
-       *
-       * It is NOT the special UTSAV Order ID.
-       */
-
-      return res
-        .status(201)
-        .json({
-
-          bookingId,
-
-          totalAmount,
-
-          lunchType,
-
-          orders:
-            dayOrders.map(
-              order => ({
-
-                day:
-                  order.day,
-
-                qty:
-                  order.qty,
-
-                amount:
-                  order.amount
-
-              })
-            )
-
-        });
-
-    } catch (error) {
+    } catch (dbError) {
 
       console.error(
-        'Create booking error:',
-        error
+        'MongoDB order creation error:',
+        dbError
       );
 
-      return res
-        .status(500)
-        .json({
-          error:
-            'Could not create your booking right now. Please try again.'
-        });
+      return res.status(500).json({
+        error:
+          'Could not save your order right now. Please try again.'
+      });
 
     }
 
+
+    /* -----------------------------
+       DO NOT SEND PAYMENT
+       CONFIRMATION EMAIL YET.
+
+       Payment has NOT happened.
+
+       PayU confirmation will happen
+       through /payu/callback.
+    ----------------------------- */
+
+
+    console.log(
+      `Pending booking created: ${bookingId} | Amount: ₹${totalAmount}`
+    );
+
+
+    /* -----------------------------
+       RETURN TO FRONTEND
+    ----------------------------- */
+
+    return res.status(201).json({
+
+      bookingId,
+
+      totalAmount,
+
+      lunchType,
+
+      paymentStatus:
+        'pending',
+
+      orders:
+        dayOrders.map(
+          order => ({
+
+            day:
+              order.day,
+
+            qty:
+              order.qty,
+
+            amount:
+              order.amount
+
+          })
+        )
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      'Unexpected /api/orders error:',
+      error
+    );
+
+    return res.status(500).json({
+
+      error:
+        'Could not create your order. Please try again.'
+
+    });
+
   }
-);
+
+});
 
 
 /*
