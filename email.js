@@ -2,124 +2,91 @@ const nodemailer = require('nodemailer');
 
 
 // ============================================================
-// SMTP TRANSPORT
+// EMAIL CONFIGURATION
 // ============================================================
 
-let transporter = null;
+const SMTP_HOST =
+  process.env.SMTP_HOST || 'smtp.gmail.com';
+
+const SMTP_PORT =
+  Number(process.env.SMTP_PORT) || 587;
+
+const SMTP_USER =
+  process.env.SMTP_USER;
+
+const SMTP_PASS =
+  (process.env.SMTP_PASS || '').replace(/\s+/g, '');
+
+const FROM_EMAIL =
+  process.env.FROM_EMAIL ||
+  SMTP_USER;
+
+const FROM_NAME =
+  process.env.FROM_NAME ||
+  'Utsav Socio-Cultural Trust';
+
+const SELLER_EMAIL =
+  process.env.SELLER_EMAIL;
 
 
-// ------------------------------------------------------------
-// CREATE SMTP TRANSPORT
-// ------------------------------------------------------------
+// ============================================================
+// CREATE EMAIL TRANSPORT
+// ============================================================
 
 function getTransport() {
 
-  // Reuse the existing transporter
-  if (transporter) {
-    return transporter;
-  }
-
-
-  const SMTP_HOST =
-    String(
-      process.env.SMTP_HOST || ''
-    ).trim();
-
-
-  const SMTP_PORT =
-    Number(
-      process.env.SMTP_PORT || 465
-    );
-
-
-  const SMTP_USER =
-    String(
-      process.env.SMTP_USER || ''
-    ).trim();
-
-
-  const SMTP_PASS =
-    String(
-      process.env.SMTP_PASS || ''
-    ).trim();
-
-
-  // ----------------------------------------------------------
-  // CHECK CONFIGURATION
-  // ----------------------------------------------------------
-
-  if (
-    !SMTP_HOST ||
-    !SMTP_USER ||
-    !SMTP_PASS
-  ) {
+  if (!SMTP_USER) {
 
     console.error(
-      '=================================================='
-    );
-
-    console.error(
-      'EMAIL ERROR: SMTP configuration is incomplete.'
-    );
-
-    console.error(
-      `SMTP_HOST: ${SMTP_HOST ? 'SET' : 'MISSING'}`
-    );
-
-    console.error(
-      `SMTP_PORT: ${SMTP_PORT || 'MISSING'}`
-    );
-
-    console.error(
-      `SMTP_USER: ${SMTP_USER ? 'SET' : 'MISSING'}`
-    );
-
-    console.error(
-      `SMTP_PASS: ${SMTP_PASS ? 'SET' : 'MISSING'}`
-    );
-
-    console.error(
-      '=================================================='
+      'EMAIL ERROR: SMTP_USER is missing.'
     );
 
     return null;
+
   }
 
 
-  // ----------------------------------------------------------
-  // SECURE CONNECTION
-  // ----------------------------------------------------------
+  if (!SMTP_PASS) {
 
-  const secure =
-    SMTP_PORT === 465;
+    console.error(
+      'EMAIL ERROR: SMTP_PASS is missing.'
+    );
+
+    return null;
+
+  }
 
 
   console.log(
-    'Creating SMTP transporter...'
+    'Creating Gmail SMTP transport...'
   );
 
   console.log(
-    `SMTP Host: ${SMTP_HOST}`
+    'SMTP host:',
+    SMTP_HOST
   );
 
   console.log(
-    `SMTP Port: ${SMTP_PORT}`
+    'SMTP port:',
+    SMTP_PORT
   );
 
   console.log(
-    `SMTP Secure: ${secure}`
-  );
-
-  console.log(
-    `SMTP User: ${SMTP_USER}`
+    'SMTP user:',
+    SMTP_USER
   );
 
 
-  // ----------------------------------------------------------
-  // CREATE TRANSPORTER
-  // ----------------------------------------------------------
+  /*
+   * Gmail:
+   *
+   * Port 587
+   * secure: false
+   *
+   * Nodemailer will use STARTTLS.
+   */
 
-  transporter =
+  const transport =
     nodemailer.createTransport({
 
       host:
@@ -128,7 +95,11 @@ function getTransport() {
       port:
         SMTP_PORT,
 
-      secure,
+      secure:
+        false,
+
+      requireTLS:
+        true,
 
       auth: {
 
@@ -139,6 +110,11 @@ function getTransport() {
           SMTP_PASS
 
       },
+
+      /*
+       * Prevent Render from waiting forever
+       * if Gmail SMTP cannot be reached.
+       */
 
       connectionTimeout:
         15000,
@@ -152,87 +128,35 @@ function getTransport() {
     });
 
 
-  return transporter;
+  return transport;
+
 }
 
 
 // ============================================================
-// EMAIL ADDRESS
+// FROM ADDRESS
 // ============================================================
 
-function getFromEmail() {
+function getFromAddress() {
 
-  return (
-    String(
-      process.env.FROM_EMAIL || ''
-    ).trim() ||
-    String(
-      process.env.SMTP_USER || ''
-    ).trim()
-  );
+  return {
+
+    name:
+      FROM_NAME,
+
+    address:
+      FROM_EMAIL
+
+  };
+
 }
 
 
 // ============================================================
-// HTML ESCAPE
+// VERIFY SMTP CONNECTION
 // ============================================================
 
-function escapeHtml(value) {
-
-  return String(
-    value == null
-      ? ''
-      : value
-  )
-    .replace(
-      /&/g,
-      '&amp;'
-    )
-    .replace(
-      /</g,
-      '&lt;'
-    )
-    .replace(
-      />/g,
-      '&gt;'
-    )
-    .replace(
-      /"/g,
-      '&quot;'
-    )
-    .replace(
-      /'/g,
-      '&#039;'
-    );
-}
-
-
-// ============================================================
-// SEND EMAIL
-// ============================================================
-
-async function sendEmail({
-  to,
-  subject,
-  text,
-  html
-}) {
-
-  // ----------------------------------------------------------
-  // VALIDATE RECIPIENT
-  // ----------------------------------------------------------
-
-  if (!to) {
-
-    throw new Error(
-      'Recipient email address is missing.'
-    );
-  }
-
-
-  // ----------------------------------------------------------
-  // GET TRANSPORT
-  // ----------------------------------------------------------
+async function verifyEmailConnection() {
 
   const transport =
     getTransport();
@@ -241,24 +165,99 @@ async function sendEmail({
   if (!transport) {
 
     throw new Error(
-      'SMTP transport could not be created. Check SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS.'
+      'SMTP transport could not be created.'
     );
+
   }
 
 
-  // ----------------------------------------------------------
-  // FROM ADDRESS
-  // ----------------------------------------------------------
-
-  const from =
-    getFromEmail();
+  console.log(
+    'Checking Gmail SMTP connection...'
+  );
 
 
-  if (!from) {
+  try {
+
+    await transport.verify();
+
+    console.log(
+      'GMAIL SMTP CONNECTION SUCCESSFUL.'
+    );
+
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      'GMAIL SMTP CONNECTION FAILED.'
+    );
+
+
+    console.error(
+      'Error code:',
+      error.code
+    );
+
+
+    console.error(
+      'Error command:',
+      error.command
+    );
+
+
+    console.error(
+      'Error response:',
+      error.response
+    );
+
+
+    console.error(
+      'Error message:',
+      error.message
+    );
+
+
+    throw error;
+
+  }
+
+}
+
+
+// ============================================================
+// COMMON SEND FUNCTION
+// ============================================================
+
+async function sendEmail({
+
+  to,
+
+  subject,
+
+  text
+
+}) {
+
+  if (!to) {
 
     throw new Error(
-      'FROM_EMAIL and SMTP_USER are both missing.'
+      'Recipient email address is missing.'
     );
+
+  }
+
+
+  const transport =
+    getTransport();
+
+
+  if (!transport) {
+
+    throw new Error(
+      'SMTP transport is not configured.'
+    );
+
   }
 
 
@@ -271,15 +270,18 @@ async function sendEmail({
   );
 
   console.log(
-    `From: ${from}`
+    'From:',
+    FROM_EMAIL
   );
 
   console.log(
-    `To: ${to}`
+    'To:',
+    to
   );
 
   console.log(
-    `Subject: ${subject}`
+    'Subject:',
+    subject
   );
 
 
@@ -288,33 +290,47 @@ async function sendEmail({
     const info =
       await transport.sendMail({
 
-        from,
+        from:
+          getFromAddress(),
 
-        to,
+        to:
+          to,
 
-        subject,
+        subject:
+          subject,
 
-        text,
-
-        html
+        text:
+          text
 
       });
 
+
+    console.log(
+      '--------------------------------------------------'
+    );
 
     console.log(
       'EMAIL SENT SUCCESSFULLY'
     );
 
     console.log(
-      `Message ID: ${info.messageId}`
+      'Message ID:',
+      info.messageId
     );
 
     console.log(
-      `Accepted: ${JSON.stringify(info.accepted)}`
+      'Accepted:',
+      info.accepted
     );
 
     console.log(
-      `Rejected: ${JSON.stringify(info.rejected)}`
+      'Rejected:',
+      info.rejected
+    );
+
+    console.log(
+      'Response:',
+      info.response
     );
 
     console.log(
@@ -322,12 +338,19 @@ async function sendEmail({
     );
 
 
+    /*
+     * Close the SMTP connection.
+     */
+
+    transport.close();
+
+
     return info;
 
   } catch (error) {
 
     console.error(
-      '=================================================='
+      '--------------------------------------------------'
     );
 
     console.error(
@@ -335,35 +358,47 @@ async function sendEmail({
     );
 
     console.error(
-      `Recipient: ${to}`
+      'Error code:',
+      error.code
     );
 
     console.error(
-      `Subject: ${subject}`
+      'Error command:',
+      error.command
     );
 
     console.error(
-      `Error Code: ${error.code || 'N/A'}`
+      'Error response:',
+      error.response
     );
 
     console.error(
-      `Error Command: ${error.command || 'N/A'}`
+      'Error responseCode:',
+      error.responseCode
     );
 
     console.error(
-      `Error Response: ${error.response || 'N/A'}`
+      'Error message:',
+      error.message
     );
 
     console.error(
-      `Error Message: ${error.message || error}`
+      'Full error:',
+      error
     );
 
     console.error(
-      '=================================================='
+      '--------------------------------------------------'
     );
+
+
+    transport.close();
+
 
     throw error;
+
   }
+
 }
 
 
@@ -375,42 +410,26 @@ async function sendOrderEmail(
   booking
 ) {
 
-  if (!booking) {
-
-    throw new Error(
-      'Booking information is missing.'
-    );
-  }
-
-
-  const sellerEmail =
-    String(
-      process.env.SELLER_EMAIL || ''
-    ).trim();
-
-
-  if (!sellerEmail) {
+  if (!SELLER_EMAIL) {
 
     throw new Error(
       'SELLER_EMAIL is not configured.'
     );
+
   }
 
 
-  // ----------------------------------------------------------
-  // ORDER DETAILS
-  // ----------------------------------------------------------
+  if (!booking) {
 
-  const dayOrders =
-    Array.isArray(
-      booking.dayOrders
-    )
-      ? booking.dayOrders
-      : [];
+    throw new Error(
+      'Booking data is missing.'
+    );
+
+  }
 
 
   const dayText =
-    dayOrders
+    (booking.dayOrders || [])
       .map(
         order =>
           `- ${order.day}: ${order.qty} plate(s) — ₹${order.amount}`
@@ -418,18 +437,22 @@ async function sendOrderEmail(
       .join('\n');
 
 
-  const orderIds =
-    dayOrders
+  const specialOrderIds =
+    (booking.dayOrders || [])
       .map(
         order =>
-          `${order.day}: ${order.orderId || 'N/A'}`
+          `${order.day}: ${order.orderId || 'Not generated'}`
       )
       .join('\n');
 
 
-  // ----------------------------------------------------------
-  // PLAIN TEXT EMAIL
-  // ----------------------------------------------------------
+  const subject =
+    `PAYMENT CONFIRMED — ${
+      booking.finalOrderId ||
+      booking.bookingId ||
+      'UTSAV BOOKING'
+    }`;
+
 
   const text =
 
@@ -437,25 +460,25 @@ async function sendOrderEmail(
 BHOG BOOKING — PAYMENT CONFIRMED
 
 Booking ID:
-${booking.bookingId || 'N/A'}
+${booking.bookingId || 'Not provided'}
 
 Special UTSAV Order ID(s):
-${orderIds || 'N/A'}
+${specialOrderIds || 'Not provided'}
 
 Name:
-${booking.name || 'N/A'}
+${booking.name || 'Not provided'}
 
 Phone:
-${booking.phone || 'N/A'}
+${booking.phone || 'Not provided'}
 
 Email:
-${booking.email || 'N/A'}
+${booking.email || 'Not provided'}
 
 Lunch Type:
-${booking.lunchType || 'N/A'}
+${booking.lunchType || 'Not provided'}
 
 Days:
-${dayText || 'N/A'}
+${dayText || 'Not provided'}
 
 Total Paid:
 Rs. ${booking.totalAmount || 0}
@@ -467,7 +490,7 @@ PayU Transaction ID:
 ${booking.payuTxnId || 'Not provided'}
 
 Paid At:
-${booking.paidAt || 'Not provided'}
+${booking.paidAt || new Date().toISOString()}
 
 The payment has been successfully verified by the UTSAV server.
 
@@ -475,300 +498,21 @@ Please open the seller dashboard for the complete booking details.
 `;
 
 
-  // ----------------------------------------------------------
-  // HTML EMAIL
-  // ----------------------------------------------------------
+  console.log(
+    'Sending seller payment confirmation...'
+  );
 
-  const htmlDayRows =
-    dayOrders
-      .map(
-        order => `
 
-<tr>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-  ${escapeHtml(order.day)}
-</td>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:center;
-">
-  ${escapeHtml(order.qty)}
-</td>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:right;
-">
-  ₹${escapeHtml(order.amount)}
-</td>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-  ${escapeHtml(order.orderId || 'N/A')}
-</td>
-
-</tr>
-
-`
-      )
-      .join('');
-
-
-  const html = `
-
-<!DOCTYPE html>
-
-<html>
-
-<head>
-
-<meta charset="UTF-8">
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0"
->
-
-<title>
-UTSAV Payment Confirmed
-</title>
-
-</head>
-
-
-<body style="
-  margin:0;
-  padding:20px;
-  background:#FBF3E6;
-  font-family:Arial,Helvetica,sans-serif;
-  color:#2A1B14;
-">
-
-<div style="
-  max-width:700px;
-  margin:auto;
-  background:#ffffff;
-  border-radius:12px;
-  padding:30px;
-  border:1px solid #DECBAA;
-">
-
-<h1 style="
-  color:#1F4B3F;
-  margin-top:0;
-">
-  Payment Confirmed
-</h1>
-
-
-<p>
-The following UTSAV Bhog booking has been successfully paid and verified.
-</p>
-
-
-<h3>
-Booking Information
-</h3>
-
-
-<table style="
-  width:100%;
-  border-collapse:collapse;
-  margin-bottom:25px;
-">
-
-<tr>
-<td style="padding:8px;font-weight:bold;">
-Booking ID
-</td>
-
-<td style="padding:8px;">
-${escapeHtml(booking.bookingId || 'N/A')}
-</td>
-</tr>
-
-
-<tr>
-<td style="padding:8px;font-weight:bold;">
-Name
-</td>
-
-<td style="padding:8px;">
-${escapeHtml(booking.name || 'N/A')}
-</td>
-</tr>
-
-
-<tr>
-<td style="padding:8px;font-weight:bold;">
-Phone
-</td>
-
-<td style="padding:8px;">
-${escapeHtml(booking.phone || 'N/A')}
-</td>
-</tr>
-
-
-<tr>
-<td style="padding:8px;font-weight:bold;">
-Email
-</td>
-
-<td style="padding:8px;">
-${escapeHtml(booking.email || 'N/A')}
-</td>
-</tr>
-
-
-<tr>
-<td style="padding:8px;font-weight:bold;">
-Lunch Type
-</td>
-
-<td style="padding:8px;">
-${escapeHtml(booking.lunchType || 'N/A')}
-</td>
-</tr>
-
-
-</table>
-
-
-<h3>
-Orders
-</h3>
-
-
-<table style="
-  width:100%;
-  border-collapse:collapse;
-">
-
-<thead>
-
-<tr>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:left;
-">
-Day
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Plates
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:right;
-">
-Amount
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:left;
-">
-Order ID
-</th>
-
-</tr>
-
-</thead>
-
-
-<tbody>
-
-${htmlDayRows}
-
-</tbody>
-
-</table>
-
-
-<h2 style="
-  margin-top:25px;
-  color:#A5303A;
-">
-
-Total Paid:
-₹${escapeHtml(booking.totalAmount || 0)}
-
-</h2>
-
-
-<p>
-<strong>PayU Payment ID:</strong>
-${escapeHtml(booking.payuPaymentId || 'Not provided')}
-</p>
-
-
-<p>
-<strong>PayU Transaction ID:</strong>
-${escapeHtml(booking.payuTxnId || 'Not provided')}
-</p>
-
-
-<p>
-<strong>Paid At:</strong>
-${escapeHtml(booking.paidAt || 'Not provided')}
-</p>
-
-
-<hr style="
-  border:none;
-  border-top:1px solid #ddd;
-  margin:25px 0;
-">
-
-
-<p>
-The payment has been successfully verified by the UTSAV server.
-</p>
-
-
-<p>
-Please open the seller dashboard for complete booking details.
-</p>
-
-
-</div>
-
-</body>
-
-</html>
-
-`;
-
-
-  return sendEmail({
+  return await sendEmail({
 
     to:
-      sellerEmail,
+      SELLER_EMAIL,
 
     subject:
-      `PAYMENT CONFIRMED — ${booking.bookingId || 'UTSAV Booking'}`,
+      subject,
 
-    text,
-
-    html
+    text:
+      text
 
   });
 
@@ -786,39 +530,23 @@ async function sendCustomerReceiptEmail(
   if (!booking) {
 
     throw new Error(
-      'Booking information is missing.'
+      'Booking data is missing.'
     );
+
   }
 
 
-  const customerEmail =
-    String(
-      booking.email || ''
-    ).trim();
-
-
-  if (!customerEmail) {
+  if (!booking.email) {
 
     throw new Error(
       'Customer email address is missing.'
     );
+
   }
 
 
-  // ----------------------------------------------------------
-  // ORDER DETAILS
-  // ----------------------------------------------------------
-
-  const dayOrders =
-    Array.isArray(
-      booking.dayOrders
-    )
-      ? booking.dayOrders
-      : [];
-
-
   const dayText =
-    dayOrders
+    (booking.dayOrders || [])
       .map(
         order =>
           `- ${order.day}: ${order.qty} plate(s) — ₹${order.amount}`
@@ -826,18 +554,22 @@ async function sendCustomerReceiptEmail(
       .join('\n');
 
 
-  const orderIds =
-    dayOrders
+  const specialOrderIds =
+    (booking.dayOrders || [])
       .map(
         order =>
-          `${order.day}: ${order.orderId || 'N/A'}`
+          `${order.day}: ${order.orderId || 'Not generated'}`
       )
       .join('\n');
 
 
-  // ----------------------------------------------------------
-  // PLAIN TEXT
-  // ----------------------------------------------------------
+  const subject =
+    `UTSAV Bhog Booking Confirmed — ${
+      booking.bookingId ||
+      booking.finalOrderId ||
+      'UTSAV BOOKING'
+    }`;
+
 
   const text =
 
@@ -848,17 +580,17 @@ Thank you for booking Bhog with Utsav Socio-Cultural Trust.
 Your payment has been successfully verified.
 
 BOOKING ID:
-${booking.bookingId || 'N/A'}
+${booking.bookingId || 'Not provided'}
 
 SPECIAL UTSAV ORDER ID(s):
-${orderIds || 'N/A'}
+${specialOrderIds || 'Not provided'}
 
-BOOKING DETAILS:
+Booking details:
 
-${dayText || 'N/A'}
+${dayText || 'Not provided'}
 
 Lunch Type:
-${booking.lunchType || 'N/A'}
+${booking.lunchType || 'Not provided'}
 
 Total Paid:
 Rs. ${booking.totalAmount || 0}
@@ -870,7 +602,7 @@ PayU Transaction ID:
 ${booking.payuTxnId || 'Not provided'}
 
 Paid At:
-${booking.paidAt || 'Not provided'}
+${booking.paidAt || new Date().toISOString()}
 
 Please keep your UTSAV Order ID safely.
 
@@ -880,327 +612,21 @@ Utsav Socio-Cultural Trust
 `;
 
 
-  // ----------------------------------------------------------
-  // HTML
-  // ----------------------------------------------------------
+  console.log(
+    'Sending customer receipt...'
+  );
 
-  const htmlDayRows =
-    dayOrders
-      .map(
-        order => `
 
-<tr>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-  ${escapeHtml(order.day)}
-</td>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:center;
-">
-  ${escapeHtml(order.qty)}
-</td>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:right;
-">
-  ₹${escapeHtml(order.amount)}
-</td>
-
-<td style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-  ${escapeHtml(order.orderId || 'N/A')}
-</td>
-
-</tr>
-
-`
-      )
-      .join('');
-
-
-  const html = `
-
-<!DOCTYPE html>
-
-<html>
-
-<head>
-
-<meta charset="UTF-8">
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0"
->
-
-<title>
-UTSAV Bhog Booking Confirmed
-</title>
-
-</head>
-
-
-<body style="
-  margin:0;
-  padding:20px;
-  background:#FBF3E6;
-  font-family:Arial,Helvetica,sans-serif;
-  color:#2A1B14;
-">
-
-<div style="
-  max-width:700px;
-  margin:auto;
-  background:#ffffff;
-  border-radius:12px;
-  padding:30px;
-  border:1px solid #DECBAA;
-">
-
-<h1 style="
-  color:#1F4B3F;
-  margin-top:0;
-">
-  Payment Successful
-</h1>
-
-
-<p>
-Dear ${escapeHtml(booking.name || 'Customer')},
-</p>
-
-
-<p>
-Thank you for booking Bhog with Utsav Socio-Cultural Trust.
-</p>
-
-
-<p>
-Your payment has been successfully verified.
-</p>
-
-
-<div style="
-  background:#F8F2E8;
-  padding:18px;
-  border-radius:10px;
-  margin:20px 0;
-">
-
-<p style="margin:6px 0;">
-<strong>Booking ID:</strong>
-${escapeHtml(booking.bookingId || 'N/A')}
-</p>
-
-
-<p style="margin:6px 0;">
-<strong>Lunch Type:</strong>
-${escapeHtml(booking.lunchType || 'N/A')}
-</p>
-
-
-<p style="margin:6px 0;">
-<strong>Total Paid:</strong>
-₹${escapeHtml(booking.totalAmount || 0)}
-</p>
-
-</div>
-
-
-<h3>
-Your UTSAV Order ID(s)
-</h3>
-
-
-<div style="
-  background:#FFF8E8;
-  border:1px solid #E5C97A;
-  padding:15px;
-  border-radius:8px;
-">
-
-${dayOrders
-  .map(
-    order => `
-
-<p style="
-  margin:7px 0;
-">
-
-<strong>
-${escapeHtml(order.day)}
-</strong>
-
-:
-${escapeHtml(order.orderId || 'N/A')}
-
-</p>
-
-`
-  )
-  .join('')}
-
-</div>
-
-
-<h3 style="
-  margin-top:25px;
-">
-Booking Details
-</h3>
-
-
-<table style="
-  width:100%;
-  border-collapse:collapse;
-">
-
-<thead>
-
-<tr>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:left;
-">
-Day
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Plates
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:right;
-">
-Amount
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Order ID
-</th>
-
-</tr>
-
-</thead>
-
-
-<tbody>
-
-${htmlDayRows}
-
-</tbody>
-
-</table>
-
-
-<p style="
-  margin-top:25px;
-">
-
-<strong>
-PayU Payment ID:
-</strong>
-
-${escapeHtml(
-  booking.payuPaymentId ||
-  'Not provided'
-)}
-
-</p>
-
-
-<p>
-
-<strong>
-PayU Transaction ID:
-</strong>
-
-${escapeHtml(
-  booking.payuTxnId ||
-  'Not provided'
-)}
-
-</p>
-
-
-<p>
-
-<strong>
-Paid At:
-</strong>
-
-${escapeHtml(
-  booking.paidAt ||
-  'Not provided'
-)}
-
-</p>
-
-
-<hr style="
-  border:none;
-  border-top:1px solid #ddd;
-  margin:25px 0;
-">
-
-
-<p>
-Please keep your UTSAV Order ID safely.
-</p>
-
-
-<p>
-Thank you,
-</p>
-
-
-<p>
-<strong>
-Utsav Socio-Cultural Trust
-</strong>
-</p>
-
-
-</div>
-
-</body>
-
-</html>
-
-`;
-
-
-  return sendEmail({
+  return await sendEmail({
 
     to:
-      customerEmail,
+      booking.email,
 
     subject:
-      `UTSAV Bhog Booking Confirmed — ${booking.bookingId || 'Booking'}`,
+      subject,
 
-    text,
-
-    html
+    text:
+      text
 
   });
 
@@ -1208,81 +634,120 @@ Utsav Socio-Cultural Trust
 
 
 // ============================================================
-// TEST EMAIL FUNCTION
-// ============================================================
-//
-// You can call this from another file if needed:
-//
-// const { testEmail } = require('./email');
-// await testEmail('your@email.com');
-//
+// SEND BOTH EMAILS
 // ============================================================
 
-async function testEmail(
-  recipient
+async function sendBothBookingEmails(
+  booking
 ) {
 
-  if (!recipient) {
+  console.log(
+    '=================================================='
+  );
 
-    throw new Error(
-      'Test email recipient is required.'
+  console.log(
+    'STARTING UTSAV EMAIL DELIVERY'
+  );
+
+  console.log(
+    'Booking:',
+    booking.bookingId
+  );
+
+  console.log(
+    'Customer:',
+    booking.email
+  );
+
+  console.log(
+    'Seller:',
+    SELLER_EMAIL
+  );
+
+  console.log(
+    '=================================================='
+  );
+
+
+  const results =
+    await Promise.allSettled([
+
+      sendOrderEmail(
+        booking
+      ),
+
+      sendCustomerReceiptEmail(
+        booking
+      )
+
+    ]);
+
+
+  const sellerResult =
+    results[0];
+
+  const customerResult =
+    results[1];
+
+
+  if(
+    sellerResult.status === 'fulfilled'
+  ) {
+
+    console.log(
+      'SELLER EMAIL: SUCCESS'
     );
+
+  } else {
+
+    console.error(
+      'SELLER EMAIL: FAILED',
+      sellerResult.reason
+    );
+
   }
 
 
-  return sendEmail({
+  if(
+    customerResult.status === 'fulfilled'
+  ) {
 
-    to:
-      recipient,
+    console.log(
+      'CUSTOMER EMAIL: SUCCESS'
+    );
 
-    subject:
-      'UTSAV Email System Test',
+  } else {
 
-    text:
+    console.error(
+      'CUSTOMER EMAIL: FAILED',
+      customerResult.reason
+    );
 
-`UTSAV SOCIO-CULTURAL TRUST
+  }
 
-This is a test email from the UTSAV Bhog Booking backend.
 
-If you received this email, your SMTP configuration is working correctly.
-`,
+  console.log(
+    '=================================================='
+  );
 
-    html: `
 
-<!DOCTYPE html>
+  return {
 
-<html>
+    seller:
 
-<body style="
-  font-family:Arial,sans-serif;
-  padding:30px;
-">
+      sellerResult.status === 'fulfilled',
 
-<h2>
-UTSAV Email System Test
-</h2>
+    customer:
 
-<p>
-This is a test email from the UTSAV Bhog Booking backend.
-</p>
+      customerResult.status === 'fulfilled'
 
-<p>
-If you received this email, your SMTP configuration is working correctly.
-</p>
-
-</body>
-
-</html>
-
-`
-
-  });
+  };
 
 }
 
 
 // ============================================================
-// EXPORTS
+// EXPORT
 // ============================================================
 
 module.exports = {
@@ -1291,6 +756,8 @@ module.exports = {
 
   sendCustomerReceiptEmail,
 
-  testEmail
+  sendBothBookingEmails,
+
+  verifyEmailConnection
 
 };
