@@ -1,4 +1,4 @@
-<pre><code>const nodemailer =
+const nodemailer =
   require('nodemailer');
 
 
@@ -248,4 +248,4 @@ module.exports = {
   sendCustomerReceiptEmail
 
 };
-</code></pre>
+
