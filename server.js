@@ -1,446 +1,2077 @@
-require('dotenv').config();
+<pre><code>require('dotenv').config();
 
 const path = require('path');
 const express = require('express');
-const multer = require('multer');
+const crypto = require('crypto');
 
-const { connectDB, ordersCollection, settingsCollection } = require('./db');
-const { sendOrderEmail, sendCustomerReceiptEmail } = require('./email');
-const { uploadScreenshot } = require('./screenshot');
+const { connectDB, ordersCollection } = require('./db');
+const {
+  sendOrderEmail,
+  sendCustomerReceiptEmail
+} = require('./email');
 const payu = require('./payu');
 
 const RATE_PER_PLATE = 500;
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
-const SETTINGS_ID = 'main'; // we only ever keep one settings document
 
-// The four days a customer can book bhog for, and a short code used inside
-// that day's unique order ID (e.g. UTSAV26-SAS-XXXXX for Shoshti).
+const ADMIN_API_KEY =
+  process.env.ADMIN_API_KEY || 'change-me';
+
+const VALID_LUNCH_TYPES = [
+  'Packing',
+  'Community Lunch (Dine-In)'
+];
+
+/*
+|--------------------------------------------------------------------------
+| BOOKING DAYS
+|--------------------------------------------------------------------------
+*/
+
 const DAY_CODES = {
-  Shoshti: 'SAS',
-  'Saptami (Adhik Puja)': 'SAA',
   Saptami: 'SAP',
+  'Adhik Saptami': 'ADS',
   Ashtami: 'ASH',
   Navami: 'NAV'
 };
+
 const VALID_DAYS = Object.keys(DAY_CODES);
-const VALID_LUNCH_TYPES = ['Packing', 'Community Lunch (Dine-In)'];
 
-// ---------- app ----------
+/*
+|--------------------------------------------------------------------------
+| APP
+|--------------------------------------------------------------------------
+*/
+
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // PayU's callback posts form-urlencoded data
-app.use(express.static(path.join(__dirname, 'public')));
 
-function genId(middle) {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  const time = Date.now().toString().slice(-4);
-  return `UTSAV${year}-${middle}-${rand}${time}`;
+app.use(express.json());
+
+/*
+ * PayU sends the callback as application/x-www-form-urlencoded.
+ */
+app.use(
+  express.urlencoded({
+    extended: true
+  })
+);
+
+app.use(
+  express.static(
+    path.join(__dirname, 'public')
+  )
+);
+
+/*
+|--------------------------------------------------------------------------
+| ID HELPERS
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Internal booking reference.
+ *
+ * IMPORTANT:
+ * This is NOT the customer's final UTSAV Order ID.
+ * It is only used internally while payment is pending.
+ */
+function generateInternalBookingId() {
+
+  const random =
+    crypto.randomBytes(8)
+      .toString('hex')
+      .toUpperCase();
+
+  return `PENDING-${Date.now()}-${random}`;
 }
 
+
+/*
+ * FINAL CUSTOMER-FACING ORDER ID.
+ *
+ * This function is ONLY called after PayU
+ * payment has been successfully verified.
+ */
+function generateFinalOrderId(dayCode) {
+
+  const year =
+    new Date()
+      .getFullYear()
+      .toString()
+      .slice(-2);
+
+  const random =
+    crypto.randomBytes(4)
+      .toString('hex')
+      .toUpperCase();
+
+  return `UTSAV${year}-${dayCode}-${random}`;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN AUTH
+|--------------------------------------------------------------------------
+*/
+
 function requireAdmin(req, res, next) {
-  const key = req.header('x-api-key');
-  if (!key || key !== ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized. Check your admin API key.' });
+
+  const key =
+    req.header('x-api-key');
+
+  if (
+    !key ||
+    key !== ADMIN_API_KEY
+  ) {
+
+    return res
+      .status(401)
+      .json({
+        error:
+          'Unauthorized. Check your admin API key.'
+      });
+
   }
+
   next();
 }
 
-async function getSettings() {
-  const existing = await settingsCollection().findOne({ _id: SETTINGS_ID });
-  return existing || { _id: SETTINGS_ID, upiId: '', payeeName: 'Durga Puja Committee' };
+
+/*
+|--------------------------------------------------------------------------
+| VALIDATION HELPERS
+|--------------------------------------------------------------------------
+*/
+
+function cleanString(value) {
+
+  return String(
+    value == null ? '' : value
+  ).trim();
+
 }
 
-// ---------- public endpoints ----------
 
-// Create a new booking, made up of one order per selected day.
-app.post('/api/orders', async (req, res) => {
-  const { name, phone, email, lunchType, days } = req.body || {};
+/*
+|--------------------------------------------------------------------------
+| CREATE BOOKING
+|--------------------------------------------------------------------------
+|
+| This creates a pending booking.
+|
+| NO final UTSAV Order ID is returned.
+|
+*/
 
-  if (!name || typeof name !== 'string' || !name.trim()) {
-    return res.status(400).json({ error: 'Name is required.' });
-  }
-  if (!/^[6-9]\d{9}$/.test(String(phone || '').trim())) {
-    return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number.' });
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim())) {
-    return res.status(400).json({ error: 'Enter a valid email address.' });
-  }
-  if (!VALID_LUNCH_TYPES.includes(lunchType)) {
-    return res.status(400).json({ error: 'Please choose a lunch type.' });
-  }
-  if (!Array.isArray(days) || days.length === 0) {
-    return res.status(400).json({ error: 'Please select at least one day.' });
-  }
+app.post(
+  '/api/orders',
+  async (req, res) => {
 
-  const seenDays = new Set();
-  const cleanDays = [];
-  for (const entry of days) {
-    const day = entry && entry.day;
-    const qtyNum = parseInt(entry && entry.qty, 10);
-    if (!VALID_DAYS.includes(day)) {
-      return res.status(400).json({ error: `"${day}" is not a valid day.` });
-    }
-    if (seenDays.has(day)) {
-      return res.status(400).json({ error: `"${day}" was selected more than once.` });
-    }
-    if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 200) {
-      return res.status(400).json({ error: `Enter a valid number of plates for ${day} (1-200).` });
-    }
-    seenDays.add(day);
-    cleanDays.push({ day, qty: qtyNum });
-  }
+    try {
 
-  const bookingId = genId('BK');
-  const createdAt = new Date().toISOString();
-  const cleanName = name.trim();
-  const cleanPhone = String(phone).trim();
-  const cleanEmail = String(email).trim();
+      const {
+        name,
+        phone,
+        email,
+        lunchType,
+        days
+      } = req.body || {};
 
-  const dayOrders = cleanDays.map(({ day, qty }) => ({
-    orderId: genId(DAY_CODES[day]),
-    bookingId,
-    day,
-    lunchType,
-    name: cleanName,
-    phone: cleanPhone,
-    email: cleanEmail,
-    qty,
-    amount: qty * RATE_PER_PLATE,
-    status: 'pending', // pending | paid
-    createdAt
-  }));
 
-  const totalAmount = dayOrders.reduce((sum, o) => sum + o.amount, 0);
+      /*
+       * Name
+       */
 
-  try {
-    await ordersCollection().insertMany(dayOrders);
-  } catch (e) {
-    console.error('Failed to save booking:', e.message);
-    return res.status(500).json({ error: 'Could not save your order right now. Please try again.' });
-  }
+      if (
+        !name ||
+        typeof name !== 'string' ||
+        !name.trim()
+      ) {
 
-  const settings = await getSettings();
-  const booking = {
-    bookingId,
-    name: cleanName,
-    phone: cleanPhone,
-    email: cleanEmail,
-    lunchType,
-    totalAmount,
-    dayOrders,
-    createdAt
-  };
+        return res
+          .status(400)
+          .json({
+            error:
+              'Name is required.'
+          });
 
-  const upiLink = settings.upiId
-    ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent('Bhog booking ' + bookingId)}`
-    : null;
-
-  // Best-effort email notifications. Never blocks the order response.
-  sendOrderEmail(booking).catch(err => console.error('Seller email failed:', err.message));
-  sendCustomerReceiptEmail(booking, upiLink).catch(err => console.error('Customer email failed:', err.message));
-
-  res.status(201).json({
-    bookingId,
-    totalAmount,
-    lunchType,
-    orders: dayOrders.map(o => ({ orderId: o.orderId, day: o.day, qty: o.qty, amount: o.amount })),
-    upiId: settings.upiId,
-    payeeName: settings.payeeName
-  });
-});
-
-// Public UPI settings, used by the storefront to build the payment link/QR
-app.get('/api/settings', async (req, res) => {
-  const settings = await getSettings();
-  res.json({ upiId: settings.upiId, payeeName: settings.payeeName });
-});
-
-// Public: called by the storefront when the customer chooses to pay by
-// card/netbanking/UPI through PayU instead of the plain UPI QR. Builds the
-// hashed form fields the browser will auto-submit to PayU's hosted page.
-app.post('/api/orders/:bookingId/payu-params', async (req, res) => {
-  const { bookingId } = req.params;
-
-  if (!payu.isConfigured()) {
-    return res.status(503).json({ error: 'Card/UPI checkout via PayU is not set up yet. Please use the UPI QR code instead.' });
-  }
-
-  const orders = await ordersCollection().find({ bookingId }).toArray();
-  if (orders.length === 0) {
-    return res.status(404).json({ error: 'Booking not found.' });
-  }
-
-  const first = orders[0];
-  const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
-  const key = process.env.PAYU_MERCHANT_KEY;
-  const salt = process.env.PAYU_SALT;
-  const amount = totalAmount.toFixed(2);
-  const productinfo = `Lunch Bhog Booking ${bookingId}`;
-  const firstname = first.name;
-  const email = first.email;
-  const phone = first.phone;
-  // A fresh txnid per attempt, so a retried/failed payment can be tried again.
-  const txnid = `${bookingId}-${Date.now().toString(36)}`.slice(0, 40);
-
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-  const surl = `${baseUrl}/payu/callback`;
-  const furl = `${baseUrl}/payu/callback`;
-
-  const hash = payu.generateRequestHash({ key, txnid, amount, productinfo, firstname, email, salt });
-
-  // Remember this attempt so the callback can cross-check the amount instead
-  // of blindly trusting whatever PayU's redirect claims.
-  await ordersCollection().updateMany(
-    { bookingId },
-    { $set: { payuTxnId: txnid, payuExpectedAmount: amount } }
-  );
-
-  res.json({
-    url: payu.getPaymentUrl(),
-    fields: { key, txnid, amount, productinfo, firstname, email, phone, surl, furl, hash }
-  });
-});
-
-// PayU redirects the customer's browser here (via a POST) after payment,
-// whether it succeeded or failed. We verify PayU's own hash before trusting
-// anything in this request — this is what actually confirms the payment,
-// not the browser arriving here.
-app.post('/payu/callback', async (req, res) => {
-  const { status, txnid, amount, productinfo, firstname, email, key, hash, mihpayid } = req.body || {};
-
-  function renderResult(ok, title, message) {
-    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${title}</title>
-      <style>
-        body{font-family:'Work Sans',Arial,sans-serif;background:#FBF3E6;color:#2A1B14;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center;}
-        .box{background:#FFFDF9;border:1px solid #DECBAA;border-radius:14px;padding:32px 24px;max-width:420px;}
-        h1{color:${ok ? '#1F4B3F' : '#B0392F'};font-size:22px;margin:0 0 12px;}
-        p{color:#6B5B4E;font-size:14.5px;line-height:1.6;}
-        a{display:inline-block;margin-top:18px;background:#A5303A;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;}
-      </style></head><body>
-      <div class="box"><h1>${title}</h1><p>${message}</p><a href="/">Return to site</a></div>
-      </body></html>`);
-  }
-
-  if (!txnid || !hash) {
-    return renderResult(false, 'Payment error', 'We could not read the payment response. If money was deducted, please contact us with your Booking ID.');
-  }
-
-  const validHash = payu.verifyResponseHash({ key, txnid, amount, productinfo, firstname, email, status, hash });
-  if (!validHash) {
-    console.error(`PayU hash verification FAILED for txnid ${txnid} — possible tampering.`);
-    return renderResult(false, 'Payment could not be verified', 'Something did not match. If money was deducted, please contact us with your Booking ID and transaction details.');
-  }
-
-  // Cross-check against what we actually expected for this exact attempt —
-  // never trust the posted amount alone, even after the hash checks out.
-  const matchingOrders = await ordersCollection().find({ payuTxnId: txnid }).toArray();
-  if (matchingOrders.length === 0) {
-    return renderResult(false, 'Booking not found', 'We could not match this payment to a booking. Please contact us with your transaction ID: ' + (mihpayid || txnid));
-  }
-  const bookingId = matchingOrders[0].bookingId;
-  const expectedAmount = matchingOrders[0].payuExpectedAmount;
-  if (String(amount) !== String(expectedAmount)) {
-    console.error(`PayU amount mismatch for booking ${bookingId}: expected ${expectedAmount}, got ${amount}`);
-    return renderResult(false, 'Amount mismatch', 'The paid amount did not match your booking. Please contact us with your Booking ID: ' + bookingId);
-  }
-
-  if (status === 'success') {
-    await ordersCollection().updateMany(
-      { bookingId },
-      { $set: { status: 'paid', payuPaymentId: mihpayid || '', paidAt: new Date().toISOString() } }
-    );
-    return renderResult(true, 'Payment successful', `Your payment for Booking ID ${bookingId} is confirmed. Thank you!`);
-  }
-
-  await ordersCollection().updateMany({ bookingId }, { $set: { payuLastStatus: status || 'failed' } });
-  return renderResult(false, 'Payment not completed', `Your payment for Booking ID ${bookingId} was not successful (${status || 'unknown'}). You can try again from the booking page, or use the UPI QR code instead.`);
-});
-
-// Public: customer submits their UPI reference number (UTR) after paying,
-// so the seller can match it against their bank statement quickly.
-app.post('/api/orders/:bookingId/utr', async (req, res) => {
-  const { bookingId } = req.params;
-  const utr = String((req.body || {}).utr || '').trim();
-
-  if (!/^[A-Za-z0-9]{6,30}$/.test(utr)) {
-    return res.status(400).json({ error: 'Enter a valid UPI reference number (usually 12 digits, shown in your payment app).' });
-  }
-
-  const result = await ordersCollection().updateMany(
-    { bookingId },
-    { $set: { utr, utrSubmittedAt: new Date().toISOString() } }
-  );
-
-  if (result.matchedCount === 0) {
-    return res.status(404).json({ error: 'Booking not found.' });
-  }
-
-  res.json({ ok: true });
-});
-
-// Public: customer uploads a screenshot of their UPI payment confirmation.
-// The image itself goes to Cloudinary (not MongoDB, which has only 512MB
-// free) — only the resulting URL is saved on the booking's day-orders.
-const screenshotUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
-});
-
-function handleScreenshotUpload(req, res, next) {
-  screenshotUpload.single('screenshot')(req, res, (err) => {
-    if (err) {
-      const message = err.code === 'LIMIT_FILE_SIZE'
-        ? 'That image is too large. Please upload a screenshot under 5MB.'
-        : 'Could not process the uploaded file. Please try a different image.';
-      return res.status(400).json({ error: message });
-    }
-    next();
-  });
-}
-
-app.post('/api/orders/:bookingId/screenshot', handleScreenshotUpload, async (req, res) => {
-  const { bookingId } = req.params;
-
-  if (!req.file) {
-    return res.status(400).json({ error: 'Please attach a screenshot image.' });
-  }
-  if (!req.file.mimetype.startsWith('image/')) {
-    return res.status(400).json({ error: 'Only image files are allowed.' });
-  }
-
-  let url;
-  try {
-    url = await uploadScreenshot(req.file.buffer, bookingId);
-  } catch (e) {
-    console.error('Screenshot upload failed:', e.message);
-    return res.status(500).json({ error: 'Could not upload the screenshot right now. You can still submit your UTR number instead.' });
-  }
-
-  const result = await ordersCollection().updateMany(
-    { bookingId },
-    { $set: { screenshotUrl: url, screenshotSubmittedAt: new Date().toISOString() } }
-  );
-
-  if (result.matchedCount === 0) {
-    return res.status(404).json({ error: 'Booking not found.' });
-  }
-
-  res.json({ ok: true, url });
-});
-
-// ---------- admin endpoints (require x-api-key header) ----------
-
-app.get('/api/admin/orders', requireAdmin, async (req, res) => {
-  const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
-  res.json({ orders });
-});
-
-app.get('/api/admin/stats', requireAdmin, async (req, res) => {
-  const orders = await ordersCollection().find({}).toArray();
-  const totalOrders = orders.length;
-  const totalBookings = new Set(orders.map(o => o.bookingId)).size;
-  const totalPlates = orders.reduce((sum, o) => sum + o.qty, 0);
-  const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
-  const paidAmount = orders.filter(o => o.status === 'paid').reduce((sum, o) => sum + o.amount, 0);
-  res.json({ totalOrders, totalBookings, totalPlates, totalAmount, paidAmount });
-});
-
-app.post('/api/admin/settings', requireAdmin, async (req, res) => {
-  const { upiId, payeeName } = req.body || {};
-  await settingsCollection().updateOne(
-    { _id: SETTINGS_ID },
-    {
-      $set: {
-        upiId: String(upiId || '').trim(),
-        payeeName: String(payeeName || 'Durga Puja Committee').trim()
       }
-    },
-    { upsert: true }
-  );
-  res.json({ ok: true });
-});
 
-app.post('/api/admin/orders/:orderId/status', requireAdmin, async (req, res) => {
-  const { orderId } = req.params;
-  const { status } = req.body || {};
-  if (!['pending', 'paid'].includes(status)) {
-    return res.status(400).json({ error: 'Status must be "pending" or "paid".' });
+
+      /*
+       * Phone
+       */
+
+      const cleanPhone =
+        cleanString(phone);
+
+      if (
+        !/^[6-9]\d{9}$/.test(
+          cleanPhone
+        )
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            error:
+              'Enter a valid 10-digit Indian mobile number.'
+          });
+
+      }
+
+
+      /*
+       * Email
+       */
+
+      const cleanEmail =
+        cleanString(email);
+
+      if (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          .test(cleanEmail)
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            error:
+              'Enter a valid email address.'
+          });
+
+      }
+
+
+      /*
+       * Lunch type
+       */
+
+      if (
+        !VALID_LUNCH_TYPES
+          .includes(lunchType)
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            error:
+              'Please choose a lunch type.'
+          });
+
+      }
+
+
+      /*
+       * Days
+       */
+
+      if (
+        !Array.isArray(days) ||
+        days.length === 0
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            error:
+              'Please select at least one day.'
+          });
+
+      }
+
+
+      const seenDays =
+        new Set();
+
+      const cleanDays = [];
+
+
+      for (
+        const entry of days
+      ) {
+
+        const day =
+          entry &&
+          entry.day;
+
+        const qty =
+          parseInt(
+            entry &&
+            entry.qty,
+            10
+          );
+
+
+        if (
+          !VALID_DAYS
+            .includes(day)
+        ) {
+
+          return res
+            .status(400)
+            .json({
+              error:
+                `"${day}" is not a valid booking day.`
+            });
+
+        }
+
+
+        if (
+          seenDays.has(day)
+        ) {
+
+          return res
+            .status(400)
+            .json({
+              error:
+                `"${day}" was selected more than once.`
+            });
+
+        }
+
+
+        if (
+          !Number.isInteger(qty) ||
+          qty < 1 ||
+          qty > 200
+        ) {
+
+          return res
+            .status(400)
+            .json({
+              error:
+                `Enter a valid number of plates for ${day} (1-200).`
+            });
+
+        }
+
+
+        seenDays.add(day);
+
+        cleanDays.push({
+          day,
+          qty
+        });
+
+      }
+
+
+      /*
+       * INTERNAL BOOKING ID
+       *
+       * This is NOT shown to the customer
+       * as their final Order ID.
+       */
+
+      const bookingId =
+        generateInternalBookingId();
+
+
+      const createdAt =
+        new Date().toISOString();
+
+
+      const cleanName =
+        cleanString(name);
+
+
+      /*
+       * Create one MongoDB document
+       * per selected day.
+       */
+
+      const dayOrders =
+        cleanDays.map(
+          ({
+            day,
+            qty
+          }) => ({
+
+            bookingId,
+
+            /*
+             * orderId is null until payment
+             * succeeds.
+             */
+            orderId: null,
+
+            day,
+
+            lunchType,
+
+            name: cleanName,
+
+            phone: cleanPhone,
+
+            email: cleanEmail,
+
+            qty,
+
+            amount:
+              qty *
+              RATE_PER_PLATE,
+
+            status: 'pending',
+
+            paymentStatus:
+              'pending',
+
+            createdAt
+
+          })
+        );
+
+
+      const totalAmount =
+        dayOrders.reduce(
+          (
+            sum,
+            order
+          ) =>
+            sum +
+            order.amount,
+          0
+        );
+
+
+      /*
+       * Save pending booking.
+       */
+
+      await ordersCollection()
+        .insertMany(
+          dayOrders
+        );
+
+
+      /*
+       * Send only the information
+       * required by the frontend.
+       *
+       * The internal bookingId is returned
+       * only so the frontend can initiate PayU.
+       *
+       * It is NOT the special UTSAV Order ID.
+       */
+
+      return res
+        .status(201)
+        .json({
+
+          bookingId,
+
+          totalAmount,
+
+          lunchType,
+
+          orders:
+            dayOrders.map(
+              order => ({
+
+                day:
+                  order.day,
+
+                qty:
+                  order.qty,
+
+                amount:
+                  order.amount
+
+              })
+            )
+
+        });
+
+    } catch (error) {
+
+      console.error(
+        'Create booking error:',
+        error
+      );
+
+      return res
+        .status(500)
+        .json({
+          error:
+            'Could not create your booking right now. Please try again.'
+        });
+
+    }
+
   }
-  const result = await ordersCollection().updateOne({ orderId }, { $set: { status } });
-  if (result.matchedCount === 0) {
-    return res.status(404).json({ error: 'Order not found.' });
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| PAYU INITIATION
+|--------------------------------------------------------------------------
+*/
+
+app.post(
+  '/api/orders/:bookingId/payu-params',
+  async (req, res) => {
+
+    try {
+
+      const {
+        bookingId
+      } = req.params;
+
+
+      /*
+       * PayU credentials must exist
+       * only on Render environment variables.
+       */
+
+      if (
+        !payu.isConfigured()
+      ) {
+
+        return res
+          .status(503)
+          .json({
+            error:
+              'PayU is not configured on the server.'
+          });
+
+      }
+
+
+      /*
+       * Find pending booking.
+       */
+
+      const orders =
+        await ordersCollection()
+          .find({
+            bookingId
+          })
+          .toArray();
+
+
+      if (
+        orders.length === 0
+      ) {
+
+        return res
+          .status(404)
+          .json({
+            error:
+              'Booking not found.'
+          });
+
+      }
+
+
+      /*
+       * Do not allow payment initiation
+       * for already paid bookings.
+       */
+
+      const alreadyPaid =
+        orders.some(
+          order =>
+            order.status === 'paid'
+        );
+
+
+      if (alreadyPaid) {
+
+        return res
+          .status(400)
+          .json({
+            error:
+              'This booking has already been paid.'
+          });
+
+      }
+
+
+      const first =
+        orders[0];
+
+
+      const totalAmount =
+        orders.reduce(
+          (
+            sum,
+            order
+          ) =>
+            sum +
+            Number(order.amount),
+          0
+        );
+
+
+      const amount =
+        totalAmount.toFixed(2);
+
+
+      const key =
+        process.env
+          .PAYU_MERCHANT_KEY;
+
+
+      const salt =
+        process.env.PAYU_SALT;
+
+
+      const productinfo =
+        `UTSAV Bhog Booking`;
+
+
+      const firstname =
+        first.name;
+
+
+      const email =
+        first.email;
+
+
+      const phone =
+        first.phone;
+
+
+      /*
+       * Fresh transaction ID for every
+       * PayU payment attempt.
+       */
+
+      const txnid =
+        `UTSAV-${Date.now()}-${crypto
+          .randomBytes(4)
+          .toString('hex')}`
+          .slice(0, 40);
+
+
+      const baseUrl =
+        `${req.protocol}://${req.get('host')}`;
+
+
+      const surl =
+        `${baseUrl}/payu/callback`;
+
+
+      const furl =
+        `${baseUrl}/payu/callback`;
+
+
+      /*
+       * Generate request hash on SERVER.
+       */
+
+      const hash =
+        payu.generateRequestHash({
+
+          key,
+
+          txnid,
+
+          amount,
+
+          productinfo,
+
+          firstname,
+
+          email,
+
+          salt
+
+        });
+
+
+      /*
+       * Save payment attempt details.
+       *
+       * These are used during callback verification.
+       */
+
+      await ordersCollection()
+        .updateMany(
+          {
+            bookingId
+          },
+          {
+            $set: {
+
+              payuTxnId:
+                txnid,
+
+              payuExpectedAmount:
+                amount,
+
+              paymentStatus:
+                'initiated'
+
+            }
+
+          }
+        );
+
+
+      return res.json({
+
+        url:
+          payu.getPaymentUrl(),
+
+        fields: {
+
+          key,
+
+          txnid,
+
+          amount,
+
+          productinfo,
+
+          firstname,
+
+          email,
+
+          phone,
+
+          surl,
+
+          furl,
+
+          hash
+
+        }
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        'PayU initiation error:',
+        error
+      );
+
+      return res
+        .status(500)
+        .json({
+          error:
+            'Could not start PayU payment.'
+        });
+
+    }
+
   }
-  res.json({ ok: true });
-});
+);
 
-// Mark every day-order under one booking as paid/pending in a single action —
-// useful since a booking is usually paid for in one transaction.
-app.post('/api/admin/bookings/:bookingId/status', requireAdmin, async (req, res) => {
-  const { bookingId } = req.params;
-  const { status } = req.body || {};
-  if (!['pending', 'paid'].includes(status)) {
-    return res.status(400).json({ error: 'Status must be "pending" or "paid".' });
+
+/*
+|--------------------------------------------------------------------------
+| PAYU CALLBACK
+|--------------------------------------------------------------------------
+|
+| This is the MOST IMPORTANT part.
+|
+| The customer-facing final Order ID is
+| generated ONLY inside the SUCCESS branch
+| AFTER:
+|
+| 1. PayU response hash verified
+| 2. Transaction ID matched
+| 3. Amount matched
+| 4. Payment status is success
+|
+|--------------------------------------------------------------------------
+*/
+
+app.post(
+  '/payu/callback',
+  async (req, res) => {
+
+    try {
+
+      const {
+
+        status,
+
+        txnid,
+
+        amount,
+
+        productinfo,
+
+        firstname,
+
+        email,
+
+        key,
+
+        hash,
+
+        mihpayid
+
+      } = req.body || {};
+
+
+      /*
+       * Small HTML response helper.
+       */
+
+      function renderResult(
+        success,
+        title,
+        message,
+        finalOrderId = null
+      ) {
+
+        const safeMessage =
+          String(message)
+            .replace(
+              /&/g,
+              '&amp;'
+            )
+            .replace(
+              /</g,
+              '&lt;'
+            )
+            .replace(
+              />/g,
+              '&gt;'
+            )
+            .replace(
+              /"/g,
+              '&quot;'
+            );
+
+
+        const orderSection =
+          finalOrderId
+            ? `
+              <div style="
+                margin:20px 0;
+                padding:14px;
+                background:#EFF5F2;
+                border:1px solid #CFE1D8;
+                border-radius:10px;
+              ">
+                <div style="
+                  font-size:11px;
+                  color:#6B5B4E;
+                  margin-bottom:5px;
+                ">
+                  YOUR UTSAV ORDER ID
+                </div>
+
+                <strong style="
+                  font-size:20px;
+                  color:#1F4B3F;
+                ">
+                  ${finalOrderId}
+                </strong>
+              </div>
+            `
+            : '';
+
+
+        return res.send(`
+
+          <!DOCTYPE html>
+
+          <html>
+
+          <head>
+
+            <meta charset="UTF-8">
+
+            <meta
+              name="viewport"
+              content="width=device-width,initial-scale=1.0"
+            >
+
+            <title>
+              ${success
+                ? 'Payment Successful'
+                : 'Payment Status'}
+            </title>
+
+            <style>
+
+              body{
+                font-family:
+                  Arial,
+                  sans-serif;
+
+                background:#FBF3E6;
+
+                color:#2A1B14;
+
+                min-height:100vh;
+
+                display:flex;
+
+                align-items:center;
+
+                justify-content:center;
+
+                padding:20px;
+              }
+
+              .box{
+                max-width:450px;
+                width:100%;
+                background:#FFFDF9;
+                border:1px solid #DECBAA;
+                border-radius:14px;
+                padding:30px;
+                text-align:center;
+              }
+
+              h1{
+                color:
+                  ${success
+                    ? '#1F4B3F'
+                    : '#B0392F'};
+              }
+
+              p{
+                color:#6B5B4E;
+                line-height:1.6;
+              }
+
+              a{
+                display:inline-block;
+                margin-top:15px;
+                padding:12px 20px;
+                background:#A5303A;
+                color:white;
+                text-decoration:none;
+                border-radius:9px;
+              }
+
+            </style>
+
+          </head>
+
+          <body>
+
+            <div class="box">
+
+              <h1>
+                ${title}
+              </h1>
+
+              <p>
+                ${safeMessage}
+              </p>
+
+              ${orderSection}
+
+              <a href="/">
+                Return to UTSAV
+              </a>
+
+            </div>
+
+          </body>
+
+          </html>
+
+        `);
+
+      }
+
+
+      /*
+       * Basic callback validation.
+       */
+
+      if (
+        !txnid ||
+        !hash
+      ) {
+
+        return renderResult(
+          false,
+          'Payment Error',
+          'The payment response was incomplete. If money was deducted, please contact the UTSAV help desk.'
+        );
+
+      }
+
+
+      /*
+       * Verify PayU response hash.
+       */
+
+      const validHash =
+        payu.verifyResponseHash({
+
+          key,
+
+          txnid,
+
+          amount,
+
+          productinfo,
+
+          firstname,
+
+          email,
+
+          status,
+
+          hash
+
+        });
+
+
+      if (!validHash) {
+
+        console.error(
+          'PayU response hash verification FAILED:',
+          txnid
+        );
+
+        return renderResult(
+          false,
+          'Payment Could Not Be Verified',
+          'The PayU response could not be verified. If money was deducted, please contact the UTSAV help desk.'
+        );
+
+      }
+
+
+      /*
+       * Find the booking using the
+       * transaction ID we generated.
+       */
+
+      const matchingOrders =
+        await ordersCollection()
+          .find({
+            payuTxnId:
+              txnid
+          })
+          .toArray();
+
+
+      if (
+        matchingOrders.length === 0
+      ) {
+
+        return renderResult(
+          false,
+          'Booking Not Found',
+          `We could not match this payment to a booking. Transaction: ${mihpayid || txnid}`
+        );
+
+      }
+
+
+      const bookingId =
+        matchingOrders[0]
+          .bookingId;
+
+
+      /*
+       * Expected amount was generated
+       * by OUR server.
+       */
+
+      const expectedAmount =
+        matchingOrders[0]
+          .payuExpectedAmount;
+
+
+      if (
+        String(amount) !==
+        String(expectedAmount)
+      ) {
+
+        console.error(
+          'PayU amount mismatch:',
+          {
+            bookingId,
+            expectedAmount,
+            receivedAmount:
+              amount
+          }
+        );
+
+
+        return renderResult(
+          false,
+          'Amount Mismatch',
+          'The payment amount did not match the booking amount. Please contact the UTSAV help desk.'
+        );
+
+      }
+
+
+      /*
+       * PAYMENT SUCCESS
+       */
+
+      if (
+        String(status)
+          .toLowerCase() ===
+        'success'
+      ) {
+
+
+        /*
+         * Check whether another callback
+         * has already completed this booking.
+         */
+
+        const existingPaid =
+          await ordersCollection()
+            .findOne({
+              bookingId,
+              status:'paid'
+            });
+
+
+        let finalOrderId;
+
+
+        if (
+          existingPaid &&
+          existingPaid.orderId
+        ) {
+
+          /*
+           * Idempotency:
+           * don't create another order ID
+           * if PayU sends callback twice.
+           */
+
+          finalOrderId =
+            existingPaid.orderId;
+
+        } else {
+
+          /*
+           * Generate the REAL customer-facing
+           * Order ID only NOW.
+           */
+
+          finalOrderId =
+            generateFinalOrderId(
+              DAY_CODES[
+                matchingOrders[0].day
+              ]
+            );
+
+        }
+
+
+        const paidAt =
+          new Date()
+            .toISOString();
+
+
+        /*
+         * IMPORTANT:
+         *
+         * All selected days belong to one
+         * payment transaction.
+         *
+         * Give every day the same final
+         * booking/order reference.
+         *
+         * Individual day IDs are generated
+         * using their own day code.
+         */
+
+        const bulkOperations =
+          matchingOrders.map(
+            order => ({
+
+              updateOne: {
+
+                filter: {
+                  _id:
+                    order._id
+                },
+
+                update: {
+
+                  $set: {
+
+                    status:
+                      'paid',
+
+                    paymentStatus:
+                      'paid',
+
+                    finalOrderId,
+
+                    orderId:
+                      order.orderId ||
+                      generateFinalOrderId(
+                        DAY_CODES[
+                          order.day
+                        ]
+                      ),
+
+                    payuPaymentId:
+                      mihpayid ||
+                      '',
+
+                    paidAt,
+
+                    payuStatus:
+                      'success'
+
+                  }
+
+                }
+
+              }
+
+            })
+          );
+
+
+        if (
+          bulkOperations.length
+        ) {
+
+          await ordersCollection()
+            .bulkWrite(
+              bulkOperations
+            );
+
+        }
+
+
+        /*
+         * Reload paid orders.
+         */
+
+        const paidOrders =
+          await ordersCollection()
+            .find({
+              bookingId
+            })
+            .toArray();
+
+
+        const totalPaid =
+          paidOrders.reduce(
+            (
+              sum,
+              order
+            ) =>
+              sum +
+              Number(order.amount),
+            0
+          );
+
+
+        /*
+         * Build booking object
+         * for email notifications.
+         */
+
+        const booking = {
+
+          bookingId,
+
+          finalOrderId,
+
+          name:
+            paidOrders[0].name,
+
+          phone:
+            paidOrders[0].phone,
+
+          email:
+            paidOrders[0].email,
+
+          lunchType:
+            paidOrders[0].lunchType,
+
+          totalAmount:
+            totalPaid,
+
+          dayOrders:
+            paidOrders,
+
+          createdAt:
+            paidOrders[0].createdAt,
+
+          paidAt,
+
+          payuPaymentId:
+            mihpayid || ''
+
+        };
+
+
+        /*
+         * Seller email.
+         *
+         * This is deliberately sent AFTER
+         * successful payment.
+         */
+
+        sendOrderEmail(
+          booking
+        )
+        .catch(
+          error =>
+            console.error(
+              'Seller payment email failed:',
+              error.message
+            )
+        );
+
+
+        /*
+         * Customer receipt.
+         */
+
+        sendCustomerReceiptEmail(
+          booking
+        )
+        .catch(
+          error =>
+            console.error(
+              'Customer receipt email failed:',
+              error.message
+            )
+        );
+
+
+        return renderResult(
+          true,
+          'Payment Successful',
+          'Your PayU payment has been verified successfully. Your bhog booking is confirmed.',
+          finalOrderId
+        );
+
+      }
+
+
+      /*
+       * PAYMENT FAILED / CANCELLED
+       */
+
+      await ordersCollection()
+        .updateMany(
+          {
+            bookingId
+          },
+          {
+            $set: {
+
+              paymentStatus:
+                'failed',
+
+              payuLastStatus:
+                status ||
+                'failed'
+
+            }
+
+          }
+        );
+
+
+      return renderResult(
+        false,
+        'Payment Not Completed',
+        `Your payment was not completed (${status || 'unknown'}). You can return to the UTSAV website and try again.`
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        'PayU callback error:',
+        error
+      );
+
+
+      return res
+        .status(500)
+        .send(`
+          <h2>
+            Payment processing error
+          </h2>
+
+          <p>
+            Please contact the UTSAV help desk
+            if money was deducted.
+          </p>
+
+          <a href="/">
+            Return to UTSAV
+          </a>
+        `);
+
+    }
+
   }
-  const result = await ordersCollection().updateMany({ bookingId }, { $set: { status } });
-  if (result.matchedCount === 0) {
-    return res.status(404).json({ error: 'Booking not found.' });
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN — ORDERS
+|--------------------------------------------------------------------------
+*/
+
+app.get(
+  '/api/admin/orders',
+  requireAdmin,
+  async (req, res) => {
+
+    try {
+
+      const orders =
+        await ordersCollection()
+          .find({})
+          .sort({
+            createdAt:
+              -1
+          })
+          .toArray();
+
+
+      res.json({
+        orders
+      });
+
+    } catch (error) {
+
+      console.error(
+        'Admin orders error:',
+        error
+      );
+
+      res
+        .status(500)
+        .json({
+          error:
+            'Could not load orders.'
+        });
+
+    }
+
   }
-  res.json({ ok: true, updated: result.matchedCount });
-});
+);
 
-// Delete one whole booking (every day-order under it). Requires the admin
-// key like every other admin route — the frontend adds a second confirmation
-// step (re-typing the key) before ever calling this.
-app.delete('/api/admin/bookings/:bookingId', requireAdmin, async (req, res) => {
-  const { bookingId } = req.params;
-  const result = await ordersCollection().deleteMany({ bookingId });
-  if (result.deletedCount === 0) {
-    return res.status(404).json({ error: 'Booking not found.' });
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN — STATS
+|--------------------------------------------------------------------------
+*/
+
+app.get(
+  '/api/admin/stats',
+  requireAdmin,
+  async (req, res) => {
+
+    try {
+
+      const orders =
+        await ordersCollection()
+          .find({})
+          .toArray();
+
+
+      const totalOrders =
+        orders.length;
+
+
+      const totalBookings =
+        new Set(
+          orders.map(
+            order =>
+              order.bookingId
+          )
+        ).size;
+
+
+      const totalPlates =
+        orders.reduce(
+          (
+            sum,
+            order
+          ) =>
+            sum +
+            Number(order.qty),
+          0
+        );
+
+
+      const totalAmount =
+        orders.reduce(
+          (
+            sum,
+            order
+          ) =>
+            sum +
+            Number(order.amount),
+          0
+        );
+
+
+      const paidAmount =
+        orders
+          .filter(
+            order =>
+              order.status === 'paid'
+          )
+          .reduce(
+            (
+              sum,
+              order
+            ) =>
+              sum +
+              Number(order.amount),
+            0
+          );
+
+
+      const pendingAmount =
+        orders
+          .filter(
+            order =>
+              order.status !== 'paid'
+          )
+          .reduce(
+            (
+              sum,
+              order
+            ) =>
+              sum +
+              Number(order.amount),
+            0
+          );
+
+
+      res.json({
+
+        totalOrders,
+
+        totalBookings,
+
+        totalPlates,
+
+        totalAmount,
+
+        paidAmount,
+
+        pendingAmount
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        'Stats error:',
+        error
+      );
+
+      res
+        .status(500)
+        .json({
+          error:
+            'Could not load statistics.'
+        });
+
+    }
+
   }
-  res.json({ ok: true, deletedCount: result.deletedCount });
-});
+);
 
-// Deletes every order/booking permanently. Requires the admin key, PLUS an
-// exact confirmation phrase in the body, on top of the frontend's own
-// re-type-your-key confirmation step — this is deliberately hard to trigger
-// by accident.
-app.delete('/api/admin/orders', requireAdmin, async (req, res) => {
-  const { confirm } = req.body || {};
-  if (confirm !== 'DELETE ALL') {
-    return res.status(400).json({ error: 'Confirmation phrase did not match. Nothing was deleted.' });
-  }
-  const result = await ordersCollection().deleteMany({});
-  res.json({ ok: true, deletedCount: result.deletedCount });
-});
 
-app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
-  const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
-  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Screenshot URL', 'PayU Payment ID', 'Created At'];
-  const rows = orders.map(o => [
-    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.utr || '', o.screenshotUrl || '', o.payuPaymentId || '', o.createdAt
-  ]);
-  const csv = [header, ...rows]
-    .map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
+/*
+|--------------------------------------------------------------------------
+| ADMIN — MARK SINGLE ORDER
+|--------------------------------------------------------------------------
+*/
 
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename="bhog-orders.csv"');
-  res.send(csv);
-});
+app.post(
+  '/api/admin/orders/:orderId/status',
+  requireAdmin,
+  async (req, res) => {
 
-const PORT = process.env.PORT || 3000;
+    const {
+      orderId
+    } = req.params;
 
-// Connect to MongoDB Atlas first, then start accepting requests.
-connectDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Bhog backend running on http://localhost:${PORT}`);
+
+    const {
+      status
+    } = req.body || {};
+
+
+    if (
+      ![
+        'pending',
+        'paid'
+      ].includes(status)
+    ) {
+
+      return res
+        .status(400)
+        .json({
+          error:
+            'Status must be "pending" or "paid".'
+        });
+
+    }
+
+
+    const result =
+      await ordersCollection()
+        .updateOne(
+          {
+            orderId
+          },
+          {
+            $set: {
+
+              status,
+
+              paymentStatus:
+                status === 'paid'
+                  ? 'paid'
+                  : 'pending'
+
+            }
+
+          }
+        );
+
+
+    if (
+      result.matchedCount === 0
+    ) {
+
+      return res
+        .status(404)
+        .json({
+          error:
+            'Order not found.'
+        });
+
+    }
+
+
+    res.json({
+      ok:true
     });
+
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN — MARK WHOLE BOOKING
+|--------------------------------------------------------------------------
+*/
+
+app.post(
+  '/api/admin/bookings/:bookingId/status',
+  requireAdmin,
+  async (req, res) => {
+
+    const {
+      bookingId
+    } = req.params;
+
+
+    const {
+      status
+    } = req.body || {};
+
+
+    if (
+      ![
+        'pending',
+        'paid'
+      ].includes(status)
+    ) {
+
+      return res
+        .status(400)
+        .json({
+          error:
+            'Status must be "pending" or "paid".'
+        });
+
+    }
+
+
+    const result =
+      await ordersCollection()
+        .updateMany(
+          {
+            bookingId
+          },
+          {
+            $set: {
+
+              status,
+
+              paymentStatus:
+                status === 'paid'
+                  ? 'paid'
+                  : 'pending'
+
+            }
+
+          }
+        );
+
+
+    if (
+      result.matchedCount === 0
+    ) {
+
+      return res
+        .status(404)
+        .json({
+          error:
+            'Booking not found.'
+        });
+
+    }
+
+
+    res.json({
+
+      ok:true,
+
+      updated:
+        result.matchedCount
+
+    });
+
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN — DELETE BOOKING
+|--------------------------------------------------------------------------
+*/
+
+app.delete(
+  '/api/admin/bookings/:bookingId',
+  requireAdmin,
+  async (req, res) => {
+
+    const {
+      bookingId
+    } = req.params;
+
+
+    const result =
+      await ordersCollection()
+        .deleteMany({
+          bookingId
+        });
+
+
+    if (
+      result.deletedCount === 0
+    ) {
+
+      return res
+        .status(404)
+        .json({
+          error:
+            'Booking not found.'
+        });
+
+    }
+
+
+    res.json({
+
+      ok:true,
+
+      deletedCount:
+        result.deletedCount
+
+    });
+
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN — DELETE ALL
+|--------------------------------------------------------------------------
+*/
+
+app.delete(
+  '/api/admin/orders',
+  requireAdmin,
+  async (req, res) => {
+
+    const {
+      confirm
+    } = req.body || {};
+
+
+    if (
+      confirm !==
+      'DELETE ALL'
+    ) {
+
+      return res
+        .status(400)
+        .json({
+          error:
+            'Confirmation phrase did not match. Nothing was deleted.'
+        });
+
+    }
+
+
+    const result =
+      await ordersCollection()
+        .deleteMany({});
+
+
+    res.json({
+
+      ok:true,
+
+      deletedCount:
+        result.deletedCount
+
+    });
+
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN — CSV EXPORT
+|--------------------------------------------------------------------------
+*/
+
+app.get(
+  '/api/admin/orders/export',
+  requireAdmin,
+  async (req, res) => {
+
+    try {
+
+      const orders =
+        await ordersCollection()
+          .find({})
+          .sort({
+            createdAt:
+              -1
+          })
+          .toArray();
+
+
+      const header = [
+
+        'Final Order ID',
+
+        'Day Order ID',
+
+        'Internal Booking Reference',
+
+        'Day',
+
+        'Lunch Type',
+
+        'Name',
+
+        'Phone',
+
+        'Email',
+
+        'Plates',
+
+        'Amount',
+
+        'Status',
+
+        'Payment Status',
+
+        'PayU Transaction ID',
+
+        'PayU Payment ID',
+
+        'Paid At',
+
+        'Created At'
+
+      ];
+
+
+      const rows =
+        orders.map(
+          order => [
+
+            order.finalOrderId ||
+              '',
+
+            order.orderId ||
+              '',
+
+            order.bookingId ||
+              '',
+
+            order.day ||
+              '',
+
+            order.lunchType ||
+              '',
+
+            order.name ||
+              '',
+
+            order.phone ||
+              '',
+
+            order.email ||
+              '',
+
+            order.qty ||
+              '',
+
+            order.amount ||
+              '',
+
+            order.status ||
+              '',
+
+            order.paymentStatus ||
+              '',
+
+            order.payuTxnId ||
+              '',
+
+            order.payuPaymentId ||
+              '',
+
+            order.paidAt ||
+              '',
+
+            order.createdAt ||
+              ''
+
+          ]
+        );
+
+
+      const csv =
+        [
+          header,
+          ...rows
+        ]
+          .map(
+            row =>
+              row
+                .map(
+                  value =>
+                    `"${String(
+                      value == null
+                        ? ''
+                        : value
+                    ).replace(
+                      /"/g,
+                      '""'
+                    )}"`
+                )
+                .join(',')
+          )
+          .join('\n');
+
+
+      res.setHeader(
+        'Content-Type',
+        'text/csv'
+      );
+
+
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="bhog-orders.csv"'
+      );
+
+
+      res.send(csv);
+
+    } catch (error) {
+
+      console.error(
+        'CSV export error:',
+        error
+      );
+
+      res
+        .status(500)
+        .send(
+          'Could not export orders.'
+        );
+
+    }
+
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| SERVER
+|--------------------------------------------------------------------------
+*/
+
+const PORT =
+  process.env.PORT ||
+  3000;
+
+
+connectDB()
+
+  .then(() => {
+
+    app.listen(
+      PORT,
+      () => {
+
+        console.log(
+          `Bhog backend running on port ${PORT}`
+        );
+
+      }
+
+    );
+
   })
-  .catch(err => {
-    console.error('Could not connect to MongoDB Atlas. Server not started.');
-    console.error(err.message);
-    process.exit(1);
-  });
+
+  .catch(
+    error => {
+
+      console.error(
+        'Could not connect to MongoDB Atlas.'
+      );
+
+      console.error(
+        error.message
+      );
+
+      process.exit(1);
+
+    }
+  );
+</code></pre>
