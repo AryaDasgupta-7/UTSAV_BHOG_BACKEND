@@ -461,50 +461,6 @@ button.ghost-danger:hover{
 
 
     <!-- =================================================
-         PAYMENT INFORMATION
-    ================================================== -->
-
-    <div class="card">
-
-      <h2
-        style="
-          font-family:'Fraunces',serif;
-          font-size:18px;
-          margin:0 0 8px;
-          color:var(--red-dark);
-        "
-      >
-        PayU Payment Gateway
-      </h2>
-
-      <p
-        style="
-          color:var(--ink-soft);
-          font-size:13px;
-          margin:0;
-          line-height:1.6;
-        "
-      >
-
-        Customer payments are processed through
-        <strong>PayU</strong>.
-
-        <br>
-
-        Payment status is updated after the server
-        verifies the PayU response.
-
-        <br>
-
-        UPI QR codes, UTR/reference numbers and
-        payment screenshots are no longer used.
-
-      </p>
-
-    </div>
-
-
-    <!-- =================================================
          STATISTICS
     ================================================== -->
 
@@ -973,17 +929,6 @@ button.ghost-danger:hover{
    * ======================================================
    * GROUP BOOKINGS
    * ======================================================
-   *
-   * One customer booking may contain
-   * multiple days.
-   *
-   * Example:
-   *
-   * PENDING-123
-   *   ├── Saptami
-   *   ├── Ashtami
-   *   └── Navami
-   *
    */
 
   function groupByBooking(
@@ -1193,13 +1138,6 @@ button.ghost-danger:hover{
         : '';
 
 
-    /*
-     * Final booking ID.
-     *
-     * The backend should only populate
-     * this after successful PayU payment.
-     */
-
     const finalBookingId =
       first.finalBookingId ||
       first.bookingFinalId ||
@@ -1215,11 +1153,6 @@ button.ghost-danger:hover{
       null;
 
 
-    /*
-     * Some backend versions use
-     * finalOrderId instead.
-     */
-
     const finalOrderId =
       finalBookingId ||
       first.finalOrderId ||
@@ -1231,10 +1164,6 @@ button.ghost-danger:hover{
       ).finalOrderId ||
       null;
 
-
-    /*
-     * PayU transaction ID.
-     */
 
     const payuTxnId =
       first.payuTxnId ||
@@ -1248,10 +1177,6 @@ button.ghost-danger:hover{
       ).payuTxnId ||
       null;
 
-
-    /*
-     * PayU payment ID.
-     */
 
     const payuPaymentId =
       first.payuPaymentId ||
@@ -1267,10 +1192,6 @@ button.ghost-danger:hover{
       ).payuPaymentId ||
       null;
 
-
-    /*
-     * Create booking card.
-     */
 
     const wrap =
       document.createElement(
@@ -1482,12 +1403,6 @@ button.ghost-danger:hover{
     `;
 
 
-    /*
-     * ====================================================
-     * DAY ROWS
-     * ====================================================
-     */
-
     const tbody =
       wrap.querySelector(
         'tbody'
@@ -1536,19 +1451,11 @@ button.ghost-danger:hover{
             );
 
 
-      /*
-       * Day-level final Order ID.
-       */
-
       const dayOrderId =
         order.orderId ||
         order.finalOrderId ||
         null;
 
-
-      /*
-       * Day-level PayU ID.
-       */
 
       const rowPayuId =
         order.payuPaymentId ||
@@ -1634,10 +1541,6 @@ button.ghost-danger:hover{
       `;
 
 
-      /*
-       * Action button.
-       */
-
       const actionTd =
         document.createElement(
           'td'
@@ -1659,15 +1562,6 @@ button.ghost-danger:hover{
           ? 'Mark pending'
           : 'Mark paid';
 
-
-      /*
-       * Only send an actual order ID
-       * when one exists.
-       *
-       * If the booking is pending and
-       * has no final order ID, use its
-       * internal bookingId.
-       */
 
       const statusIdentifier =
         order.orderId ||
@@ -1726,21 +1620,11 @@ button.ghost-danger:hover{
     }
 
 
-    /*
-     * ====================================================
-     * FOOTER ACTIONS
-     * ====================================================
-     */
-
     const footer =
       wrap.querySelector(
         '.booking-footer'
       );
 
-
-    /*
-     * Internal booking ID.
-     */
 
     const bookingId =
       first.bookingId ||
@@ -1748,10 +1632,6 @@ button.ghost-danger:hover{
 
 
     if(bookingId){
-
-      /*
-       * Whole booking status.
-       */
 
       const bulkBtn =
         document.createElement(
@@ -1795,10 +1675,6 @@ button.ghost-danger:hover{
         bulkBtn
       );
 
-
-      /*
-       * Delete booking.
-       */
 
       const deleteBtn =
         document.createElement(
