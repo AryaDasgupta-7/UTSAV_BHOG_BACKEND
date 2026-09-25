@@ -1907,51 +1907,48 @@ a {
         };
 
 
-        // ------------------------------------------------------
-        // SELLER + CUSTOMER EMAILS
-        // ------------------------------------------------------
+ // --------------------------------------------------------
+// SELLER + CUSTOMER EMAILS
+// --------------------------------------------------------
 
-        const emailResults =
-          await Promise.allSettled([
+const emailResults =
+  await Promise.allSettled([
 
-            sendOrderEmail(
-              booking
-            ),
+    sendOrderEmail(
+      booking
+    ),
 
-            sendCustomerReceiptEmail(
-              booking,
-              null
-            )
+    sendCustomerReceiptEmail(
+      booking,
+      null
+    )
 
-          ]);
+  ]);
 
+emailResults.forEach(
+  (
+    result,
+    index
+  ) => {
 
-        emailResults.forEach(
-          (
-            result,
-            index
-          ) => {
+    if (
+      result.status ===
+      'rejected'
+    ) {
 
-            if (
-              result.status ===
-              'rejected'
-            ) {
+      console.error(
 
-              console.error(
+        index === 0
+          ? 'Seller email failed:'
+          : 'Customer receipt email failed:',
 
-                index === 0
-                  ? 'Seller email failed:'
-                  : 'Customer receipt email failed:',
+        result.reason
 
-                result.reason
+      );
+    }
 
-              );
-            }
-
-          }
-        );
-
-
+  }
+);
         // ------------------------------------------------------
         // LOG SUCCESS
         // ------------------------------------------------------
