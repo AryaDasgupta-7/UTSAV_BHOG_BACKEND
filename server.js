@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 
@@ -13,8 +14,6 @@ const {
   sendCustomerReceiptEmail
 } = require('./email');
 
-const payu = require('./payu');
-
 
 // ============================================================
 // CONFIGURATION
@@ -24,6 +23,24 @@ const RATE_PER_PLATE = 500;
 
 const ADMIN_API_KEY =
   process.env.ADMIN_API_KEY || 'change-me';
+
+
+// ============================================================
+// PAYU CONFIGURATION
+// ============================================================
+
+const PAYU_KEY =
+  process.env.PAYU_MERCHANT_KEY;
+
+const PAYU_SALT =
+  process.env.PAYU_SALT;
+
+
+// PayU TEST URL
+// Change to https://secure.payu.in/_payment when going LIVE.
+const PAYU_PAYMENT_URL =
+  process.env.PAYU_PAYMENT_URL ||
+  'https://test.payu.in/_payment';
 
 
 // ============================================================
@@ -37,7 +54,8 @@ const DAY_CODES = {
   'Navami': 'NAV'
 };
 
-const VALID_DAYS = Object.keys(DAY_CODES);
+const VALID_DAYS =
+  Object.keys(DAY_CODES);
 
 const VALID_LUNCH_TYPES = [
   'Packing',
@@ -51,8 +69,6 @@ const VALID_LUNCH_TYPES = [
 
 const app = express();
 
-// Render runs behind a proxy.
-// This allows req.protocol to correctly detect HTTPS.
 app.set('trust proxy', 1);
 
 app.use(express.json());
@@ -74,15 +90,6 @@ app.use(
 // ID GENERATORS
 // ============================================================
 
-// INTERNAL BOOKING ID
-//
-// This ID is created BEFORE payment.
-//
-// Example:
-// BOOK-ABC123-XYZ789
-//
-// This is NOT the final customer Order ID.
-
 function generateBookingId() {
 
   const timestamp =
@@ -91,19 +98,14 @@ function generateBookingId() {
       .toUpperCase();
 
   const random =
-    Math.random()
-      .toString(36)
-      .substring(2, 8)
+    crypto
+      .randomBytes(4)
+      .toString('hex')
       .toUpperCase();
 
   return `BOOK-${timestamp}-${random}`;
 }
 
-
-// FINAL CUSTOMER ORDER ID
-//
-// This function is called ONLY after
-// successful and verified PayU payment.
 
 function generateOrderId(dayCode) {
 
@@ -114,17 +116,270 @@ function generateOrderId(dayCode) {
       .slice(-2);
 
   const random =
-    Math.random()
-      .toString(36)
-      .substring(2, 6)
+    crypto
+      .randomBytes(4)
+      .toString('hex')
       .toUpperCase();
 
   const time =
     Date.now()
       .toString()
-      .slice(-4);
+      .slice(-5);
 
   return `UTSAV${year}-${dayCode}-${random}${time}`;
+}
+
+
+// ============================================================
+// PAYU HASH FUNCTIONS
+// ============================================================
+//
+// IMPORTANT
+//
+// PayU's standard payment hash is:
+//
+// sha512(
+//   key|txnid|amount|productinfo|firstname|email|
+//   udf1|udf2|udf3|udf4|udf5||||||SALT
+// )
+//
+// We explicitly include udf1-udf5 even though we do not use them.
+//
+// PayU response hash:
+//
+// sha512(
+//   SALT|status||||||udf5|udf4|udf3|udf2|udf1|
+//   email|firstname|productinfo|amount|txnid|key
+// )
+//
+// ============================================================
+
+
+function generatePayURequestHash({
+  key,
+  txnid,
+  amount,
+  productinfo,
+  firstname,
+  email,
+  udf1 = '',
+  udf2 = '',
+  udf3 = '',
+  udf4 = '',
+  udf5 = '',
+  salt
+}) {
+
+  const hashString =
+    [
+      key,
+      txnid,
+      amount,
+      productinfo,
+      firstname,
+      email,
+      udf1,
+      udf2,
+      udf3,
+      udf4,
+      udf5,
+      '',
+      '',
+      '',
+      '',
+      '',
+      salt
+    ].join('|');
+
+  console.log(
+    'PayU request hash string:',
+    hashString
+  );
+
+  return crypto
+    .createHash('sha512')
+    .update(hashString, 'utf8')
+    .digest('hex')
+    .toLowerCase();
+}
+
+
+function generatePayUResponseHash({
+  salt,
+  status,
+  udf1 = '',
+  udf2 = '',
+  udf3 = '',
+  udf4 = '',
+  udf5 = '',
+  email,
+  firstname,
+  productinfo,
+  amount,
+  txnid,
+  key,
+  additionalCharges = ''
+}) {
+
+  let hashString;
+
+  /*
+   * PayU uses a slightly different response
+   * hash if additional charges are present.
+   */
+
+  if (additionalCharges) {
+
+    hashString =
+      [
+        additionalCharges,
+        salt,
+        status,
+        '',
+        '',
+        '',
+        '',
+        '',
+        udf5,
+        udf4,
+        udf3,
+        udf2,
+        udf1,
+        email,
+        firstname,
+        productinfo,
+        amount,
+        txnid,
+        key
+      ].join('|');
+
+  } else {
+
+    hashString =
+      [
+        salt,
+        status,
+        '',
+        '',
+        '',
+        '',
+        '',
+        udf5,
+        udf4,
+        udf3,
+        udf2,
+        udf1,
+        email,
+        firstname,
+        productinfo,
+        amount,
+        txnid,
+        key
+      ].join('|');
+  }
+
+  console.log(
+    'PayU response hash string:',
+    hashString
+  );
+
+  return crypto
+    .createHash('sha512')
+    .update(hashString, 'utf8')
+    .digest('hex')
+    .toLowerCase();
+}
+
+
+function verifyPayUResponseHash(params) {
+
+  const {
+    key,
+    txnid,
+    amount,
+    productinfo,
+    firstname,
+    email,
+    status,
+    hash,
+    udf1 = '',
+    udf2 = '',
+    udf3 = '',
+    udf4 = '',
+    udf5 = '',
+    additionalCharges = ''
+  } = params;
+
+  if (!PAYU_SALT) {
+    console.error(
+      'PAYU_SALT is missing.'
+    );
+
+    return false;
+  }
+
+  if (!hash) {
+    return false;
+  }
+
+  const calculatedHash =
+    generatePayUResponseHash({
+      salt: PAYU_SALT,
+      status,
+      udf1,
+      udf2,
+      udf3,
+      udf4,
+      udf5,
+      email,
+      firstname,
+      productinfo,
+      amount,
+      txnid,
+      key,
+      additionalCharges
+    });
+
+  const receivedHash =
+    String(hash)
+      .trim()
+      .toLowerCase();
+
+  console.log(
+    'PayU received hash:',
+    receivedHash
+  );
+
+  console.log(
+    'PayU calculated hash:',
+    calculatedHash
+  );
+
+  if (
+    receivedHash.length !==
+    calculatedHash.length
+  ) {
+    return false;
+  }
+
+  try {
+
+    return crypto.timingSafeEqual(
+      Buffer.from(
+        receivedHash,
+        'utf8'
+      ),
+      Buffer.from(
+        calculatedHash,
+        'utf8'
+      )
+    );
+
+  } catch (error) {
+
+    return false;
+
+  }
 }
 
 
@@ -132,7 +387,11 @@ function generateOrderId(dayCode) {
 // ADMIN AUTHENTICATION
 // ============================================================
 
-function requireAdmin(req, res, next) {
+function requireAdmin(
+  req,
+  res,
+  next
+) {
 
   const key =
     req.header('x-api-key');
@@ -157,431 +416,391 @@ function requireAdmin(req, res, next) {
 // HEALTH CHECK
 // ============================================================
 
-app.get('/api/health', (req, res) => {
+app.get(
+  '/api/health',
+  (req, res) => {
 
-  res.json({
-    ok: true,
-    service: 'UTSAV Bhog Booking Backend',
-    paymentGateway: 'PayU'
-  });
+    res.json({
+      ok: true,
+      service:
+        'UTSAV Bhog Booking Backend',
+      paymentGateway:
+        'PayU'
+    });
 
-});
+  }
+);
 
 
 // ============================================================
 // CREATE BOOKING
 // ============================================================
-//
-// This creates a PENDING booking.
-//
-// IMPORTANT:
-// There is NO customer-facing orderId at this point.
-//
-// MongoDB receives:
-//
-// bookingId
-// day
-// qty
-// amount
-// status = pending
-//
-// The final orderId is created only after
-// successful PayU payment.
-// ============================================================
 
-app.post('/api/orders', async (req, res) => {
-
-  try {
-
-    console.log(
-      'NEW ORDER REQUEST:',
-      JSON.stringify(req.body, null, 2)
-    );
-
-
-    const {
-      name,
-      phone,
-      email,
-      lunchType,
-      days
-    } = req.body || {};
-
-
-    // --------------------------------------------------------
-    // NAME
-    // --------------------------------------------------------
-
-    if (
-      !name ||
-      typeof name !== 'string' ||
-      !name.trim()
-    ) {
-
-      return res.status(400).json({
-        error:
-          'Name is required.'
-      });
-
-    }
-
-
-    // --------------------------------------------------------
-    // PHONE
-    // --------------------------------------------------------
-
-    const cleanPhone =
-      String(phone || '').trim();
-
-    if (
-      !/^[6-9]\d{9}$/.test(
-        cleanPhone
-      )
-    ) {
-
-      return res.status(400).json({
-        error:
-          'Enter a valid 10-digit Indian mobile number.'
-      });
-
-    }
-
-
-    // --------------------------------------------------------
-    // EMAIL
-    // --------------------------------------------------------
-
-    const cleanEmail =
-      String(email || '').trim();
-
-    if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        cleanEmail
-      )
-    ) {
-
-      return res.status(400).json({
-        error:
-          'Enter a valid email address.'
-      });
-
-    }
-
-
-    // --------------------------------------------------------
-    // LUNCH TYPE
-    // --------------------------------------------------------
-
-    if (
-      !VALID_LUNCH_TYPES.includes(
-        lunchType
-      )
-    ) {
-
-      return res.status(400).json({
-        error:
-          'Please choose a lunch type.'
-      });
-
-    }
-
-
-    // --------------------------------------------------------
-    // DAYS
-    // --------------------------------------------------------
-
-    if (
-      !Array.isArray(days) ||
-      days.length === 0
-    ) {
-
-      return res.status(400).json({
-        error:
-          'Please select at least one day.'
-      });
-
-    }
-
-
-    // --------------------------------------------------------
-    // VALIDATE DAYS
-    // --------------------------------------------------------
-
-    const seenDays =
-      new Set();
-
-    const cleanDays =
-      [];
-
-
-    for (
-      const entry of days
-    ) {
-
-      const day =
-        entry &&
-        entry.day;
-
-      const qtyNum =
-        parseInt(
-          entry &&
-          entry.qty,
-          10
-        );
-
-
-      if (
-        !VALID_DAYS.includes(day)
-      ) {
-
-        return res.status(400).json({
-          error:
-            `"${day}" is not a valid booking day.`
-        });
-
-      }
-
-
-      if (
-        seenDays.has(day)
-      ) {
-
-        return res.status(400).json({
-          error:
-            `"${day}" was selected more than once.`
-        });
-
-      }
-
-
-      if (
-        !Number.isInteger(qtyNum) ||
-        qtyNum < 1 ||
-        qtyNum > 200
-      ) {
-
-        return res.status(400).json({
-          error:
-            `Enter a valid number of plates for ${day} (1-200).`
-        });
-
-      }
-
-
-      seenDays.add(day);
-
-
-      cleanDays.push({
-        day,
-        qty: qtyNum
-      });
-
-    }
-
-
-    // --------------------------------------------------------
-    // INTERNAL BOOKING ID
-    // --------------------------------------------------------
-
-    const bookingId =
-      generateBookingId();
-
-
-    const createdAt =
-      new Date().toISOString();
-
-
-    const cleanName =
-      name.trim();
-
-
-    // --------------------------------------------------------
-    // CREATE PENDING DAY ORDERS
-    // --------------------------------------------------------
-    //
-    // IMPORTANT:
-    //
-    // DO NOT put:
-    //
-    // orderId: null
-    //
-    // here.
-    //
-    // Your MongoDB collection has a UNIQUE orderId index.
-    // Multiple null values would therefore cause:
-    //
-    // E11000 duplicate key error
-    //
-    // The orderId field simply does not exist until payment
-    // succeeds.
-    // --------------------------------------------------------
-
-    const dayOrders =
-      cleanDays.map(
-        ({
-          day,
-          qty
-        }) => {
-
-          return {
-
-            bookingId,
-
-            day,
-
-            lunchType,
-
-            name:
-              cleanName,
-
-            phone:
-              cleanPhone,
-
-            email:
-              cleanEmail,
-
-            qty,
-
-            amount:
-              qty * RATE_PER_PLATE,
-
-            status:
-              'pending',
-
-            paymentStatus:
-              'pending',
-
-            createdAt
-
-          };
-
-        }
-      );
-
-
-    // --------------------------------------------------------
-    // TOTAL AMOUNT
-    // --------------------------------------------------------
-
-    const totalAmount =
-      dayOrders.reduce(
-        (
-          sum,
-          order
-        ) =>
-          sum +
-          order.amount,
-        0
-      );
-
-
-    // --------------------------------------------------------
-    // SAVE TO MONGODB
-    // --------------------------------------------------------
+app.post(
+  '/api/orders',
+  async (req, res) => {
 
     try {
 
-      await ordersCollection()
-        .insertMany(
-          dayOrders
-        );
-
-    } catch (dbError) {
-
-      console.error(
-        'FAILED TO SAVE BOOKING:'
+      console.log(
+        'NEW ORDER REQUEST:',
+        JSON.stringify(
+          req.body,
+          null,
+          2
+        )
       );
 
+      const {
+        name,
+        phone,
+        email,
+        lunchType,
+        days
+      } = req.body || {};
+
+
+      // --------------------------------------------------------
+      // NAME
+      // --------------------------------------------------------
+
+      if (
+        !name ||
+        typeof name !== 'string' ||
+        !name.trim()
+      ) {
+
+        return res.status(400).json({
+          error:
+            'Name is required.'
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // PHONE
+      // --------------------------------------------------------
+
+      const cleanPhone =
+        String(phone || '').trim();
+
+      if (
+        !/^[6-9]\d{9}$/.test(
+          cleanPhone
+        )
+      ) {
+
+        return res.status(400).json({
+          error:
+            'Enter a valid 10-digit Indian mobile number.'
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // EMAIL
+      // --------------------------------------------------------
+
+      const cleanEmail =
+        String(email || '').trim();
+
+      if (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          cleanEmail
+        )
+      ) {
+
+        return res.status(400).json({
+          error:
+            'Enter a valid email address.'
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // LUNCH TYPE
+      // --------------------------------------------------------
+
+      if (
+        !VALID_LUNCH_TYPES.includes(
+          lunchType
+        )
+      ) {
+
+        return res.status(400).json({
+          error:
+            'Please choose a lunch type.'
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // DAYS
+      // --------------------------------------------------------
+
+      if (
+        !Array.isArray(days) ||
+        days.length === 0
+      ) {
+
+        return res.status(400).json({
+          error:
+            'Please select at least one day.'
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // VALIDATE DAYS
+      // --------------------------------------------------------
+
+      const seenDays =
+        new Set();
+
+      const cleanDays = [];
+
+
+      for (
+        const entry of days
+      ) {
+
+        const day =
+          entry &&
+          entry.day;
+
+        const qtyNum =
+          parseInt(
+            entry &&
+            entry.qty,
+            10
+          );
+
+
+        if (
+          !VALID_DAYS.includes(day)
+        ) {
+
+          return res.status(400).json({
+            error:
+              `"${day}" is not a valid booking day.`
+          });
+
+        }
+
+
+        if (
+          seenDays.has(day)
+        ) {
+
+          return res.status(400).json({
+            error:
+              `"${day}" was selected more than once.`
+          });
+
+        }
+
+
+        if (
+          !Number.isInteger(qtyNum) ||
+          qtyNum < 1 ||
+          qtyNum > 200
+        ) {
+
+          return res.status(400).json({
+            error:
+              `Enter a valid number of plates for ${day} (1-200).`
+          });
+
+        }
+
+
+        seenDays.add(day);
+
+        cleanDays.push({
+          day,
+          qty: qtyNum
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // BOOKING ID
+      // --------------------------------------------------------
+
+      const bookingId =
+        generateBookingId();
+
+
+      const createdAt =
+        new Date().toISOString();
+
+
+      const cleanName =
+        name.trim();
+
+
+      // --------------------------------------------------------
+      // CREATE PENDING DAY ORDERS
+      // --------------------------------------------------------
+
+      const dayOrders =
+        cleanDays.map(
+          ({
+            day,
+            qty
+          }) => {
+
+            return {
+
+              bookingId,
+
+              day,
+
+              lunchType,
+
+              name:
+                cleanName,
+
+              phone:
+                cleanPhone,
+
+              email:
+                cleanEmail,
+
+              qty,
+
+              amount:
+                qty * RATE_PER_PLATE,
+
+              status:
+                'pending',
+
+              paymentStatus:
+                'pending',
+
+              createdAt
+
+            };
+
+          }
+        );
+
+
+      // --------------------------------------------------------
+      // TOTAL AMOUNT
+      // --------------------------------------------------------
+
+      const totalAmount =
+        dayOrders.reduce(
+          (
+            sum,
+            order
+          ) =>
+            sum + order.amount,
+          0
+        );
+
+
+      // --------------------------------------------------------
+      // SAVE TO MONGODB
+      // --------------------------------------------------------
+
+      try {
+
+        await ordersCollection()
+          .insertMany(
+            dayOrders
+          );
+
+      } catch (dbError) {
+
+        console.error(
+          'FAILED TO SAVE BOOKING:'
+        );
+
+        console.error(
+          dbError
+        );
+
+        return res.status(500).json({
+          error:
+            'Could not save your order right now. Please try again.'
+        });
+
+      }
+
+
+      console.log(
+        `Pending booking created: ${bookingId}`
+      );
+
+      console.log(
+        `Amount: ₹${totalAmount}`
+      );
+
+
+      // --------------------------------------------------------
+      // RESPONSE
+      // --------------------------------------------------------
+
+      return res.status(201).json({
+
+        bookingId,
+
+        totalAmount,
+
+        lunchType,
+
+        paymentStatus:
+          'pending',
+
+        orders:
+          dayOrders.map(
+            order => ({
+
+              day:
+                order.day,
+
+              qty:
+                order.qty,
+
+              amount:
+                order.amount
+
+            })
+          )
+
+      });
+
+
+    } catch (error) {
+
       console.error(
-        dbError
+        'Unexpected /api/orders error:',
+        error
       );
 
       return res.status(500).json({
+
         error:
-          'Could not save your order right now. Please try again.'
+          'Could not create your order. Please try again.'
+
       });
 
     }
 
-
-    console.log(
-      `Pending booking created: ${bookingId}`
-    );
-
-    console.log(
-      `Amount: ₹${totalAmount}`
-    );
-
-
-    // --------------------------------------------------------
-    // RETURN TO FRONTEND
-    // --------------------------------------------------------
-    //
-    // There is deliberately NO orderId here.
-    // --------------------------------------------------------
-
-    return res.status(201).json({
-
-      bookingId,
-
-      totalAmount,
-
-      lunchType,
-
-      paymentStatus:
-        'pending',
-
-      orders:
-        dayOrders.map(
-          order => ({
-
-            day:
-              order.day,
-
-            qty:
-              order.qty,
-
-            amount:
-              order.amount
-
-          })
-        )
-
-    });
-
-
-  } catch (error) {
-
-    console.error(
-      'Unexpected /api/orders error:',
-      error
-    );
-
-    return res.status(500).json({
-
-      error:
-        'Could not create your order. Please try again.'
-
-    });
-
   }
-
-});
+);
 
 
 // ============================================================
 // PAYU PAYMENT PARAMETERS
-// ============================================================
-//
-// The frontend calls this after /api/orders succeeds.
-//
-// This endpoint:
-// 1. Finds the pending booking
-// 2. Calculates the amount from MongoDB
-// 3. Creates a PayU transaction ID
-// 4. Generates the PayU hash
-// 5. Stores the transaction ID
-// 6. Returns PayU form fields
 // ============================================================
 
 app.post(
@@ -595,31 +814,32 @@ app.post(
       } = req.params;
 
 
-      // ------------------------------------------------------
-      // PAYU CONFIGURATION
-      // ------------------------------------------------------
+      // --------------------------------------------------------
+      // CHECK PAYU CONFIGURATION
+      // --------------------------------------------------------
 
       if (
-        !payu.isConfigured()
+        !PAYU_KEY ||
+        !PAYU_SALT
       ) {
 
         console.error(
-          'PayU is not configured.'
+          'PAYU_MERCHANT_KEY or PAYU_SALT is missing.'
         );
 
         return res.status(503).json({
 
           error:
-            'PayU payment is not configured. Please contact the administrator.'
+            'PayU payment is not configured correctly on the server.'
 
         });
 
       }
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // FIND BOOKING
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       const orders =
         await ordersCollection()
@@ -641,9 +861,9 @@ app.post(
       }
 
 
-      // ------------------------------------------------------
-      // PREVENT PAYMENT AFTER ALREADY PAID
-      // ------------------------------------------------------
+      // --------------------------------------------------------
+      // CHECK ALREADY PAID
+      // --------------------------------------------------------
 
       const alreadyPaid =
         orders.some(
@@ -664,13 +884,12 @@ app.post(
       }
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // CALCULATE TOTAL FROM DATABASE
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       const first =
         orders[0];
-
 
       const totalAmount =
         orders.reduce(
@@ -679,7 +898,9 @@ app.post(
             order
           ) =>
             sum +
-            Number(order.amount || 0),
+            Number(
+              order.amount || 0
+            ),
           0
         );
 
@@ -688,89 +909,80 @@ app.post(
         totalAmount.toFixed(2);
 
 
-      // ------------------------------------------------------
-      // PAYU CREDENTIALS
-      // ------------------------------------------------------
-
-      const key =
-        process.env.PAYU_MERCHANT_KEY;
-
-      const salt =
-        process.env.PAYU_SALT;
-
-
-      if (
-        !key ||
-        !salt
-      ) {
-
-        console.error(
-          'PAYU_MERCHANT_KEY or PAYU_SALT is missing.'
-        );
-
-        return res.status(500).json({
-
-          error:
-            'PayU is not configured correctly on the server.'
-
-        });
-
-      }
-
-
-      // ------------------------------------------------------
-      // PAYU PRODUCT INFORMATION
-      // ------------------------------------------------------
+      // --------------------------------------------------------
+      // PAYU DATA
+      // --------------------------------------------------------
 
       const productinfo =
         `Lunch Bhog Booking ${bookingId}`;
 
-
       const firstname =
-        first.name;
-
+        String(
+          first.name || ''
+        ).trim();
 
       const email =
-        first.email;
-
+        String(
+          first.email || ''
+        ).trim();
 
       const phone =
-        first.phone;
+        String(
+          first.phone || ''
+        ).trim();
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
+      // UDF VALUES
+      // --------------------------------------------------------
+      //
+      // We are not using UDFs.
+      //
+      // IMPORTANT:
+      // They are still explicitly sent as empty strings.
+      // This guarantees that the exact same values are
+      // used in the PayU hash.
+      // --------------------------------------------------------
+
+      const udf1 = '';
+      const udf2 = '';
+      const udf3 = '';
+      const udf4 = '';
+      const udf5 = '';
+
+
+      // --------------------------------------------------------
       // UNIQUE TRANSACTION ID
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       const txnid =
         `${bookingId}-${Date.now().toString(36)}`
           .slice(0, 40);
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // CALLBACK URL
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       const baseUrl =
         `${req.protocol}://${req.get('host')}`;
 
-
       const surl =
         `${baseUrl}/payu/callback`;
-
 
       const furl =
         `${baseUrl}/payu/callback`;
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // GENERATE PAYU HASH
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       const hash =
-        payu.generateRequestHash({
+        generatePayURequestHash({
 
-          key,
+          key:
+            PAYU_KEY,
 
           txnid,
 
@@ -782,14 +994,25 @@ app.post(
 
           email,
 
-          salt
+          udf1,
+
+          udf2,
+
+          udf3,
+
+          udf4,
+
+          udf5,
+
+          salt:
+            PAYU_SALT
 
         });
 
 
-      // ------------------------------------------------------
-      // SAVE PAYU ATTEMPT
-      // ------------------------------------------------------
+      // --------------------------------------------------------
+      // SAVE PAYMENT ATTEMPT
+      // --------------------------------------------------------
 
       await ordersCollection()
         .updateMany(
@@ -821,30 +1044,56 @@ app.post(
 
 
       console.log(
-        `PayU payment initialized: ${bookingId}`
+        '=========================================='
       );
 
       console.log(
-        `PayU transaction ID: ${txnid}`
+        'PAYU PAYMENT INITIALIZED'
       );
 
       console.log(
-        `PayU amount: ₹${amount}`
+        `Booking ID: ${bookingId}`
+      );
+
+      console.log(
+        `Transaction ID: ${txnid}`
+      );
+
+      console.log(
+        `Amount: ₹${amount}`
+      );
+
+      console.log(
+        `Customer: ${firstname}`
+      );
+
+      console.log(
+        `Email: ${email}`
+      );
+
+      console.log(
+        'PayU URL:',
+        PAYU_PAYMENT_URL
+      );
+
+      console.log(
+        '=========================================='
       );
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // RETURN PAYU FORM DATA
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       return res.json({
 
         url:
-          payu.getPaymentUrl(),
+          PAYU_PAYMENT_URL,
 
         fields: {
 
-          key,
+          key:
+            PAYU_KEY,
 
           txnid,
 
@@ -857,6 +1106,16 @@ app.post(
           email,
 
           phone,
+
+          udf1,
+
+          udf2,
+
+          udf3,
+
+          udf4,
+
+          udf5,
 
           surl,
 
@@ -892,24 +1151,6 @@ app.post(
 // ============================================================
 // PAYU CALLBACK
 // ============================================================
-//
-// PayU posts the payment result here.
-//
-// IMPORTANT:
-//
-// We DO NOT trust the browser.
-// We verify the PayU hash.
-//
-// Only after successful verification:
-//
-// 1. Verify booking
-// 2. Verify amount
-// 3. Check status
-// 4. Generate final Order IDs
-// 5. Mark booking paid
-// 6. Send seller email
-// 7. Send customer receipt
-// ============================================================
 
 app.post(
   '/payu/callback',
@@ -935,14 +1176,23 @@ app.post(
 
         hash,
 
-        mihpayid
+        mihpayid,
+
+        udf1 = '',
+        udf2 = '',
+        udf3 = '',
+        udf4 = '',
+        udf5 = '',
+
+        additionalCharges,
+        additional_charges
 
       } = req.body || {};
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // RESULT PAGE
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       function renderResult(
         ok,
@@ -960,7 +1210,6 @@ app.post(
               />/g,
               '&gt;'
             );
-
 
         const safeMessage =
           String(message)
@@ -1008,7 +1257,7 @@ body {
   border: 1px solid #DECBAA;
   border-radius: 14px;
   padding: 32px 24px;
-  max-width: 500px;
+  max-width: 600px;
   width: 100%;
 }
 
@@ -1053,16 +1302,18 @@ a {
 </body>
 
 </html>`);
+
       }
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // BASIC VALIDATION
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       if (
         !txnid ||
-        !hash
+        !hash ||
+        !status
       ) {
 
         return renderResult(
@@ -1078,12 +1329,43 @@ a {
       }
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
+      // VERIFY PAYU KEY
+      // --------------------------------------------------------
+
+      if (
+        key !== PAYU_KEY
+      ) {
+
+        console.error(
+          'PayU callback key mismatch.'
+        );
+
+        return renderResult(
+
+          false,
+
+          'Payment verification failed',
+
+          'The payment response could not be verified.'
+
+        );
+
+      }
+
+
+      // --------------------------------------------------------
       // VERIFY PAYU RESPONSE HASH
-      // ------------------------------------------------------
+      // --------------------------------------------------------
+
+      const extraCharges =
+        additionalCharges ||
+        additional_charges ||
+        '';
+
 
       const validHash =
-        payu.verifyResponseHash({
+        verifyPayUResponseHash({
 
           key,
 
@@ -1099,7 +1381,20 @@ a {
 
           status,
 
-          hash
+          hash,
+
+          udf1,
+
+          udf2,
+
+          udf3,
+
+          udf4,
+
+          udf5,
+
+          additionalCharges:
+            extraCharges
 
         });
 
@@ -1112,23 +1407,27 @@ a {
           `PayU hash verification FAILED for ${txnid}`
         );
 
-
         return renderResult(
 
           false,
 
           'Payment could not be verified',
 
-          'The payment response could not be verified. If money was deducted, please contact the administrator with your transaction details.'
+          'The payment response could not be verified. If money was deducted, please contact the administrator with your PayU transaction details.'
 
         );
 
       }
 
 
-      // ------------------------------------------------------
+      console.log(
+        `PayU response hash verified successfully for ${txnid}`
+      );
+
+
+      // --------------------------------------------------------
       // FIND BOOKING
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       const matchingOrders =
         await ordersCollection()
@@ -1161,9 +1460,9 @@ a {
           .bookingId;
 
 
-      // ------------------------------------------------------
+      // --------------------------------------------------------
       // VERIFY AMOUNT
-      // ------------------------------------------------------
+      // --------------------------------------------------------
 
       const expectedAmount =
         matchingOrders[0]
@@ -1195,18 +1494,19 @@ a {
       }
 
 
-      // ======================================================
+      // ========================================================
       // PAYMENT SUCCESS
-      // ======================================================
+      // ========================================================
 
       if (
         String(status).toLowerCase() ===
         'success'
       ) {
 
-        // ----------------------------------------------------
+
+        // ------------------------------------------------------
         // GET CURRENT BOOKING
-        // ----------------------------------------------------
+        // ------------------------------------------------------
 
         const currentOrders =
           await ordersCollection()
@@ -1233,9 +1533,9 @@ a {
         }
 
 
-        // ----------------------------------------------------
-        // CHECK WHETHER ALREADY PAID
-        // ----------------------------------------------------
+        // ------------------------------------------------------
+        // CHECK ALREADY PAID
+        // ------------------------------------------------------
 
         const alreadyPaid =
           currentOrders.some(
@@ -1274,11 +1574,9 @@ a {
         }
 
 
-        // ----------------------------------------------------
+        // ------------------------------------------------------
         // GENERATE FINAL ORDER IDS
-        //
-        // THIS IS THE FIRST TIME ORDER IDs ARE CREATED.
-        // ----------------------------------------------------
+        // ------------------------------------------------------
 
         const paidAt =
           new Date().toISOString();
@@ -1321,7 +1619,6 @@ a {
                       order._id,
 
                     bookingId:
-
                       bookingId
 
                   },
@@ -1359,9 +1656,9 @@ a {
           );
 
 
-        // ----------------------------------------------------
+        // ------------------------------------------------------
         // UPDATE MONGODB
-        // ----------------------------------------------------
+        // ------------------------------------------------------
 
         await ordersCollection()
           .bulkWrite(
@@ -1369,9 +1666,9 @@ a {
           );
 
 
-        // ----------------------------------------------------
+        // ------------------------------------------------------
         // GET UPDATED BOOKING
-        // ----------------------------------------------------
+        // ------------------------------------------------------
 
         const paidOrders =
           await ordersCollection()
@@ -1430,9 +1727,9 @@ a {
         };
 
 
-        // ----------------------------------------------------
+        // ------------------------------------------------------
         // SELLER EMAIL
-        // ----------------------------------------------------
+        // ------------------------------------------------------
 
         sendOrderEmail(
           booking
@@ -1448,12 +1745,9 @@ a {
         );
 
 
-        // ----------------------------------------------------
+        // ------------------------------------------------------
         // CUSTOMER RECEIPT EMAIL
-        //
-        // PayU is the only payment method.
-        // No UPI link is sent.
-        // ----------------------------------------------------
+        // ------------------------------------------------------
 
         sendCustomerReceiptEmail(
           booking,
@@ -1469,6 +1763,10 @@ a {
           }
         );
 
+
+        // ------------------------------------------------------
+        // LOG SUCCESS
+        // ------------------------------------------------------
 
         console.log(
           '=========================================='
@@ -1498,6 +1796,7 @@ a {
           'Order IDs:'
         );
 
+
         paidOrders.forEach(
           order => {
 
@@ -1508,14 +1807,15 @@ a {
           }
         );
 
+
         console.log(
           '=========================================='
         );
 
 
-        // ----------------------------------------------------
-        // CUSTOMER ORDER IDs
-        // ----------------------------------------------------
+        // ------------------------------------------------------
+        // CUSTOMER ORDER IDS
+        // ------------------------------------------------------
 
         const orderList =
           paidOrders
@@ -1539,9 +1839,9 @@ a {
       }
 
 
-      // ======================================================
+      // ========================================================
       // PAYMENT FAILED
-      // ======================================================
+      // ========================================================
 
       await ordersCollection()
         .updateMany(
@@ -2301,6 +2601,10 @@ connectDB()
 
         console.log(
           'Payment gateway: PayU'
+        );
+
+        console.log(
+          `PayU URL: ${PAYU_PAYMENT_URL}`
         );
 
         console.log(
