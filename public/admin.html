@@ -73,6 +73,13 @@
   .day-table th{ background:#FBF6EC; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.3px; }
   .day-table td.num{ text-align:right; }
   .day-table tr:last-child td{ border-bottom:none; }
+  .proof-panel{ display:flex; flex-wrap:wrap; gap:14px; padding:12px 16px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:#FFFDF9; }
+  .proof-item{ flex:1; min-width:200px; }
+  .proof-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.3px; color:var(--ink-soft); margin-bottom:4px; }
+  .proof-utr{ font-family:ui-monospace, Menlo, Consolas, monospace; font-size:15px; font-weight:600; color:var(--ink); word-break:break-all; }
+  .proof-none{ font-size:12.5px; color:var(--ink-soft); font-style:italic; }
+  .proof-thumb{ display:block; max-width:110px; max-height:150px; border:1px solid var(--line); border-radius:8px; object-fit:cover; }
+  .proof-copy{ margin-left:8px; font-size:11px; padding:3px 8px; vertical-align:middle; }
   .booking-footer{ padding:10px 16px; background:#FBF6EC; display:flex; justify-content:flex-end; }
 
   @media (max-width: 640px){
@@ -249,17 +256,13 @@
     const wrap = document.createElement('div');
     wrap.className = 'booking-group';
 
-    const utrLine = first.utr ? ` · UTR: ${escapeHtml(first.utr)}` : '';
-    const screenshotLine = first.screenshotUrl
-      ? ` · <a href="${first.screenshotUrl}" target="_blank" rel="noopener">View payment screenshot</a>`
-      : '';
 
     wrap.innerHTML = `
       <div class="booking-header">
         <div class="binfo">
           <b>${escapeHtml(first.bookingId || first.orderId)}</b>
           <div class="booking-meta">${escapeHtml(first.name)} · ${escapeHtml(first.phone)} · ${escapeHtml(first.email)}</div>
-          <div class="booking-meta">Placed ${placed}${utrLine}${screenshotLine}</div>
+          <div class="booking-meta">Placed ${placed}</div>
         </div>
         <div class="booking-total">
           <span class="status-pill ${overallClass}">${overallLabel}</span>
@@ -267,6 +270,7 @@
           <div class="booking-meta">${totalPlates} plate(s) across ${group.length} day(s)</div>
         </div>
       </div>
+      <div class="proof-panel"></div>
       <div class="day-table-scroll">
         <table class="day-table">
           <thead>
@@ -277,6 +281,36 @@
       </div>
       <div class="booking-footer"></div>
     `;
+
+    const proof = wrap.querySelector('.proof-panel');
+    const mkItem = (label) => {
+      const d = document.createElement('div'); d.className = 'proof-item';
+      const l = document.createElement('div'); l.className = 'proof-label'; l.textContent = label;
+      d.appendChild(l); proof.appendChild(d); return d;
+    };
+    const utrItem = mkItem('UPI reference no. (UTR)');
+    if(first.utr){
+      const v = document.createElement('span'); v.className = 'proof-utr'; v.textContent = first.utr;
+      utrItem.appendChild(v);
+      const cp = document.createElement('button'); cp.className = 'ghost proof-copy'; cp.textContent = 'Copy';
+      cp.addEventListener('click', async () => {
+        try{ await navigator.clipboard.writeText(first.utr); cp.textContent = 'Copied'; setTimeout(()=>cp.textContent='Copy',1200); }catch(e){}
+      });
+      utrItem.appendChild(cp);
+    } else {
+      const n = document.createElement('div'); n.className = 'proof-none'; n.textContent = 'Not submitted'; utrItem.appendChild(n);
+    }
+    const shotItem = mkItem('Payment screenshot');
+    if(first.screenshotUrl && /^https:\/\//i.test(first.screenshotUrl)){
+      const a = document.createElement('a'); a.href = first.screenshotUrl; a.target = '_blank'; a.rel = 'noopener';
+      const img = document.createElement('img'); img.className = 'proof-thumb'; img.src = first.screenshotUrl; img.alt = 'Payment screenshot'; img.loading = 'lazy';
+      a.appendChild(img); shotItem.appendChild(a);
+      const open = document.createElement('div'); open.style.marginTop = '4px'; open.style.fontSize = '12px';
+      const oa = document.createElement('a'); oa.href = first.screenshotUrl; oa.target = '_blank'; oa.rel = 'noopener'; oa.textContent = 'Open full size';
+      open.appendChild(oa); shotItem.appendChild(open);
+    } else {
+      const n = document.createElement('div'); n.className = 'proof-none'; n.textContent = 'Not uploaded'; shotItem.appendChild(n);
+    }
 
     const tbody = wrap.querySelector('tbody');
     for(const o of group){
