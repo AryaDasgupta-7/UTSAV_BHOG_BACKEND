@@ -1,867 +1,211 @@
-require('dotenv').config();
-
-/*
-============================================================
-BREVO EMAIL SERVICE
-============================================================
-Uses Brevo Transactional Email API.
-
-Required environment variables:
-
-BREVO_API_KEY=your_brevo_api_key
-BREVO_SENDER_EMAIL=your_verified_sender_email
-
-Optional:
-BREVO_SENDER_NAME=Utsav Socio-Cultural Trust
-ADMIN_EMAIL=your_admin_email
-
-IMPORTANT:
-Do NOT put your Brevo API key directly in this file.
-Keep it in Render Environment Variables.
-============================================================
-*/
+// Uses Brevo's HTTP API (not SMTP) to send email.
+// Render's free tier blocks all outbound SMTP connections (ports 25, 465, 587)
+// as an anti-spam measure, so any nodemailer/SMTP setup will always time out
+// there. Brevo's API sends over plain HTTPS instead, which is never blocked.
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
-const BREVO_API_KEY =
-  String(process.env.BREVO_API_KEY || '').trim();
-
-const BREVO_SENDER_EMAIL =
-  String(
-    process.env.BREVO_SENDER_EMAIL ||
-    process.env.BREVO_SENDER_EMAIL_ADDRESS ||
-    ''
-  ).trim();
-
-const BREVO_SENDER_NAME =
-  String(
-    process.env.BREVO_SENDER_NAME ||
-    'Utsav Socio-Cultural Trust'
-  ).trim();
-
-const ADMIN_EMAIL =
-  String(
-    process.env.ADMIN_EMAIL ||
-    process.env.BREVO_SENDER_EMAIL ||
-    ''
-  ).trim();
-
-
-// ============================================================
-// CONFIGURATION CHECK
-// ============================================================
-
-console.log('==========================================');
-console.log('BREVO EMAIL CONFIGURATION');
-console.log('==========================================');
-
-console.log(
-  'Brevo API Key configured:',
-  Boolean(BREVO_API_KEY)
-);
-
-console.log(
-  'Brevo Sender Email:',
-  BREVO_SENDER_EMAIL || 'NOT SET'
-);
-
-console.log(
-  'Brevo Sender Name:',
-  BREVO_SENDER_NAME
-);
-
-console.log(
-  'Admin Email:',
-  ADMIN_EMAIL || 'NOT SET'
-);
-
-console.log('==========================================');
-
-
-// ============================================================
-// HTML ESCAPE
-// ============================================================
-
-function escapeHtml(value) {
-
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+function getSender() {
+  const email = process.env.BREVO_SENDER_EMAIL;
+  if (!email) return null;
+  return {
+    name: process.env.BREVO_SENDER_NAME || 'Utsav Socio-Cultural Trust',
+    email
+  };
 }
 
+// Sends one email via Brevo. Silently does nothing if not configured yet,
+// so the order flow never breaks just because email isn't set up.
+async function sendViaBrevo({ to, toName, subject, text, html }) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const sender = getSender();
+  if (!apiKey || !sender) return;
 
-// ============================================================
-// SEND EMAIL THROUGH BREVO
-// ============================================================
+  const res = await fetch(BREVO_API_URL, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': apiKey,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to, name: toName || to }],
+      subject,
+      textContent: text,
+      ...(html ? { htmlContent: html } : {})
+    })
+  });
 
-async function sendBrevoEmail({
-  to,
-  toName = '',
-  subject,
-  htmlContent,
-  textContent = ''
-}) {
-
-  if (!BREVO_API_KEY) {
-
-    throw new Error(
-      'BREVO_API_KEY is missing from environment variables.'
-    );
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Brevo API error ${res.status}: ${body}`);
   }
-
-
-  if (!BREVO_SENDER_EMAIL) {
-
-    throw new Error(
-      'BREVO_SENDER_EMAIL is missing from environment variables.'
-    );
-  }
-
-
-  if (!to) {
-
-    throw new Error(
-      'Recipient email address is missing.'
-    );
-  }
-
-
-  console.log('------------------------------------------');
-  console.log('BREVO EMAIL');
-  console.log('------------------------------------------');
-
-  console.log(
-    'From:',
-    `${BREVO_SENDER_NAME} <${BREVO_SENDER_EMAIL}>`
-  );
-
-  console.log(
-    'To:',
-    to
-  );
-
-  console.log(
-    'Subject:',
-    subject
-  );
-
-  console.log(
-    'Sending through Brevo API...'
-  );
-
-
-  const response = await fetch(
-    BREVO_API_URL,
-    {
-      method: 'POST',
-
-      headers: {
-        'accept': 'application/json',
-        'api-key': BREVO_API_KEY,
-        'content-type': 'application/json'
-      },
-
-      body: JSON.stringify({
-
-        sender: {
-          name: BREVO_SENDER_NAME,
-          email: BREVO_SENDER_EMAIL
-        },
-
-        to: [
-          {
-            email: String(to).trim(),
-            name: String(toName || '').trim()
-          }
-        ],
-
-        subject,
-
-        htmlContent,
-
-        ...(textContent
-          ? { textContent }
-          : {})
-
-      })
-    }
-  );
-
-
-  const responseText =
-    await response.text();
-
-
-  let responseData = {};
-
-  try {
-
-    responseData =
-      responseText
-        ? JSON.parse(responseText)
-        : {};
-
-  } catch {
-
-    responseData = {
-      raw: responseText
-    };
-
-  }
-
-
-  if (!response.ok) {
-
-    console.error(
-      'BREVO EMAIL FAILED'
-    );
-
-    console.error(
-      'HTTP Status:',
-      response.status
-    );
-
-    console.error(
-      'Brevo Response:',
-      JSON.stringify(
-        responseData,
-        null,
-        2
-      )
-    );
-
-    throw new Error(
-      `Brevo email failed (${response.status}): ${
-        responseData.message ||
-        responseText ||
-        'Unknown Brevo error'
-      }`
-    );
-  }
-
-
-  console.log(
-    'BREVO EMAIL SENT SUCCESSFULLY'
-  );
-
-  console.log(
-    'Brevo Message ID:',
-    responseData.messageId || 'N/A'
-  );
-
-  console.log('------------------------------------------');
-
-
-  return responseData;
 }
 
+// Plain-text day-by-day breakdown. Order IDs are included for the seller only;
+// customers get their Order IDs after payment succeeds.
+function dayLines(booking, withIds = true) {
+  return booking.dayOrders
+    .map(o => `  - ${o.day} (${o.lunchType}): ${o.qty} plate(s), ₹${o.amount}` + (withIds ? `  (Order ID: ${o.orderId})` : ''))
+    .join('\n');
+}
 
-// ============================================================
-// SELLER / ADMIN EMAIL
-// ============================================================
+// HTML day-by-day breakdown, shared by both emails.
+function dayRowsHtml(booking, withIds = true) {
+  return booking.dayOrders
+    .map(o => `
+      <tr>
+        <td style="padding:8px 12px; color:#6B5B4E;">${o.day}</td>
+        <td style="padding:8px 12px;">${o.lunchType}</td>
+        <td style="padding:8px 12px;">${o.qty}</td>
+        <td style="padding:8px 12px;">₹${o.amount}</td>
+        ${withIds ? `<td style="padding:8px 12px; font-size:12px; color:#6B5B4E;">${o.orderId}</td>` : ''}
+      </tr>`)
+    .join('');
+}
+
+// ---------- Notification to the seller ----------
 
 async function sendOrderEmail(booking) {
-
-  if (!ADMIN_EMAIL) {
-
-    throw new Error(
-      'ADMIN_EMAIL is not configured.'
-    );
-  }
-
-
-  console.log('==========================================');
-  console.log('Attempting to send SELLER email...');
-  console.log(
-    'Seller recipient:',
-    ADMIN_EMAIL
-  );
-  console.log('==========================================');
-
-
-  const rows =
-    (booking.dayOrders || [])
-      .map(order => {
-
-        return `
-          <tr>
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-            ">
-              ${escapeHtml(order.day)}
-            </td>
-
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-            ">
-              ${escapeHtml(order.qty)}
-            </td>
-
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-            ">
-              ₹${escapeHtml(order.amount)}
-            </td>
-
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-            ">
-              ${escapeHtml(order.orderId || 'Pending')}
-            </td>
-          </tr>
-        `;
-
-      })
-      .join('');
-
-
-  const htmlContent = `
-
-<!DOCTYPE html>
-
-<html>
-
-<head>
-
-<meta charset="UTF-8">
-
-</head>
-
-<body style="
-  font-family:Arial,sans-serif;
-  background:#f7f3ed;
-  padding:20px;
-">
-
-<div style="
-  max-width:700px;
-  margin:auto;
-  background:white;
-  padding:30px;
-  border-radius:12px;
-">
-
-<h2 style="
-  color:#8f2632;
-">
-New Bhog Booking Received
-</h2>
-
-
-<p>
-A new Bhog booking has been successfully paid.
-</p>
-
-
-<h3>Booking Details</h3>
-
-<table style="
-  width:100%;
-  border-collapse:collapse;
-">
-
-<tr>
-<td><strong>Booking ID</strong></td>
-<td>${escapeHtml(booking.bookingId)}</td>
-</tr>
-
-<tr>
-<td><strong>Name</strong></td>
-<td>${escapeHtml(booking.name)}</td>
-</tr>
-
-<tr>
-<td><strong>Phone</strong></td>
-<td>${escapeHtml(booking.phone)}</td>
-</tr>
-
-<tr>
-<td><strong>Email</strong></td>
-<td>${escapeHtml(booking.email)}</td>
-</tr>
-
-<tr>
-<td><strong>Lunch Type</strong></td>
-<td>${escapeHtml(booking.lunchType)}</td>
-</tr>
-
-<tr>
-<td><strong>Total Amount</strong></td>
-<td>₹${escapeHtml(booking.totalAmount)}</td>
-</tr>
-
-<tr>
-<td><strong>PayU Transaction ID</strong></td>
-<td>${escapeHtml(booking.payuTxnId)}</td>
-</tr>
-
-<tr>
-<td><strong>PayU Payment ID</strong></td>
-<td>${escapeHtml(booking.payuPaymentId)}</td>
-</tr>
-
-</table>
-
-
-<h3>Orders</h3>
-
-<table style="
-  width:100%;
-  border-collapse:collapse;
-">
-
-<thead>
-
-<tr>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Day
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Plates
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Amount
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Order ID
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-${rows}
-
-</tbody>
-
-</table>
-
-
-<p style="
-  margin-top:25px;
-  color:#666;
-">
-
-Payment Status:
-<strong>PAID</strong>
-
-</p>
-
-</div>
-
-</body>
-
-</html>
-
-`;
-
-
-  const textContent = `
-
-New Bhog Booking Received
-
-Booking ID: ${booking.bookingId}
-
-Name: ${booking.name}
-
-Phone: ${booking.phone}
-
-Email: ${booking.email}
-
-Lunch Type: ${booking.lunchType}
-
-Total Amount: ₹${booking.totalAmount}
-
-PayU Transaction ID: ${booking.payuTxnId}
-
-PayU Payment ID: ${booking.payuPaymentId}
-
-Orders:
-
-${(booking.dayOrders || [])
-  .map(order =>
-    `${order.day}: ${order.qty} plates - ₹${order.amount} - ${order.orderId || 'Pending'}`
-  )
-  .join('\n')}
-
-Payment Status: PAID
-
-`;
-
-
-  return sendBrevoEmail({
-
-    to: ADMIN_EMAIL,
-
-    toName:
-      'Utsav Admin',
-
-    subject:
-      `New UTSAV Bhog Booking - ${booking.bookingId}`,
-
-    htmlContent,
-
-    textContent
-
+  const sellerEmail = process.env.SELLER_EMAIL;
+  if (!sellerEmail) return;
+
+  await sendViaBrevo({
+    to: sellerEmail,
+    toName: 'Seller',
+    subject: `New bhog booking ${booking.bookingId} — ₹${booking.totalAmount}`,
+    text:
+`New Durga Pujo bhog booking received.
+
+Booking ID : ${booking.bookingId}
+Name       : ${booking.name}
+Phone      : ${booking.phone}
+Email      : ${booking.email}
+
+Days booked:
+${dayLines(booking)}
+
+Total amount: Rs. ${booking.totalAmount}
+Placed at   : ${booking.createdAt}
+
+View all orders in your admin dashboard (/admin.html).`
   });
 }
 
-
-// ============================================================
-// CUSTOMER RECEIPT EMAIL
-// ============================================================
-
-async function sendCustomerReceiptEmail(
-  booking,
-  attachment = null
-) {
-
-  const customerEmail =
-    String(
-      booking.email || ''
-    ).trim();
-
-
-  if (!customerEmail) {
-
-    throw new Error(
-      'Customer email is missing.'
-    );
-  }
-
-
-  console.log('==========================================');
-  console.log(
-    'Attempting to send CUSTOMER receipt email...'
-  );
-
-  console.log(
-    'Customer recipient:',
-    customerEmail
-  );
-
-  console.log('==========================================');
-
-
-  const rows =
-    (booking.dayOrders || [])
-      .map(order => {
-
-        return `
-          <tr>
-
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-            ">
-              ${escapeHtml(order.day)}
-            </td>
-
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-            ">
-              ${escapeHtml(order.qty)}
-            </td>
-
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-            ">
-              ₹${escapeHtml(order.amount)}
-            </td>
-
-            <td style="
-              padding:10px;
-              border:1px solid #ddd;
-              font-weight:bold;
-            ">
-              ${escapeHtml(order.orderId)}
-            </td>
-
-          </tr>
-        `;
-
-      })
-      .join('');
-
-
-  const htmlContent = `
-
-<!DOCTYPE html>
-
-<html>
-
-<head>
-
-<meta charset="UTF-8">
-
-</head>
-
-<body style="
-  font-family:Arial,sans-serif;
-  background:#f7f3ed;
-  padding:20px;
-">
-
-<div style="
-  max-width:700px;
-  margin:auto;
-  background:white;
-  padding:30px;
-  border-radius:12px;
-">
-
-<h1 style="
-  color:#8f2632;
-  text-align:center;
-">
-UTSAV Bhog Booking Confirmed
-</h1>
-
-
-<p style="
-  font-size:18px;
-">
-
-Dear ${escapeHtml(booking.name)},
-
-</p>
-
-
-<p>
-
-Your payment has been successfully received and your Bhog booking is confirmed.
-
-</p>
-
-
-<div style="
-  background:#f8f1e6;
-  padding:18px;
-  border-radius:10px;
-  margin:20px 0;
-">
-
-<p>
-<strong>Booking ID:</strong>
-${escapeHtml(booking.bookingId)}
-</p>
-
-<p>
-<strong>Total Amount:</strong>
-₹${escapeHtml(booking.totalAmount)}
-</p>
-
-<p>
-<strong>Payment Status:</strong>
-<span style="color:#1f7a4d;">
-PAID
-</span>
-</p>
-
-</div>
-
-
-<h3>
-Your Order Details
-</h3>
-
-
-<table style="
-  width:100%;
-  border-collapse:collapse;
-">
-
-<thead>
-
-<tr>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Day
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Plates
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Amount
-</th>
-
-<th style="
-  padding:10px;
-  border:1px solid #ddd;
-">
-Order ID
-</th>
-
-</tr>
-
-</thead>
-
-
-<tbody>
-
-${rows}
-
-</tbody>
-
-</table>
-
-
-<div style="
-  margin-top:25px;
-  padding:18px;
-  background:#f8f1e6;
-  border-radius:10px;
-">
-
-<p>
-<strong>PayU Transaction ID:</strong>
-${escapeHtml(booking.payuTxnId)}
-</p>
-
-<p>
-<strong>PayU Payment ID:</strong>
-${escapeHtml(booking.payuPaymentId)}
-</p>
-
-<p>
-<strong>Payment Date:</strong>
-${escapeHtml(booking.paidAt)}
-</p>
-
-</div>
-
-
-<p style="
-  margin-top:30px;
-">
-
-Thank you for booking Bhog with Utsav Socio-Cultural Trust.
-
-</p>
-
-
-<p style="
-  color:#777;
-  font-size:13px;
-">
-
-Please keep this email for your records.
-
-</p>
-
-</div>
-
-</body>
-
-</html>
-
-`;
-
-
-  const textContent = `
-
-UTSAV Bhog Booking Confirmed
-
-Dear ${booking.name},
-
-Your payment has been successfully received and your Bhog booking is confirmed.
-
-Booking ID:
-${booking.bookingId}
-
-Total Amount:
-₹${booking.totalAmount}
-
-Payment Status:
-PAID
-
-Order Details:
-
-${(booking.dayOrders || [])
-  .map(order =>
-    `${order.day}: ${order.qty} plates - ₹${order.amount} - Order ID: ${order.orderId}`
-  )
-  .join('\n')}
-
-PayU Transaction ID:
-${booking.payuTxnId}
-
-PayU Payment ID:
-${booking.payuPaymentId}
-
-Payment Date:
-${booking.paidAt}
-
-Thank you for booking Bhog with Utsav Socio-Cultural Trust.
-
-`;
-
-
-  return sendBrevoEmail({
-
-    to: customerEmail,
-
-    toName:
-      booking.name,
-
-    subject:
-      `UTSAV Bhog Booking Confirmed - ${booking.bookingId}`,
-
-    htmlContent,
-
-    textContent
-
+// ---------- Receipt to the customer ----------
+
+async function sendCustomerReceiptEmail(booking, upiLink) {
+  if (!booking.email) return;
+
+  const payLine = upiLink
+    ? `Pay now via UPI: ${upiLink}\n(Or reopen your confirmation page and tap "Pay via UPI app" / scan the QR code.)`
+    : `Please pay via UPI using the link/QR shown on your confirmation page.`;
+
+  const text =
+`Thank you, ${booking.name}! Your bhog booking is confirmed.
+
+Booking ID : ${booking.bookingId}
+
+Days booked:
+${dayLines(booking, false)}
+
+Total amount: Rs. ${booking.totalAmount}
+
+Your bhog lunch will be prepared by 1:30 PM on each booked day.
+
+${payLine}
+
+Please keep your Booking ID as your payment reference.
+Your special Order ID for each day will be shown and emailed to you as soon as you submit your UPI reference number (UTR) or a payment screenshot.
+
+For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.
+
+— Utsav Socio-Cultural Trust`;
+
+  const html = `
+  <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#2A1B14;">
+    <h2 style="color:#7A2029; margin-bottom:4px;">Utsav Socio-Cultural Trust</h2>
+    <p style="color:#6B5B4E; margin-top:0;">Lunch Bhog Booking — Receipt</p>
+    <p>Thank you, <b>${booking.name}</b>! Your bhog booking is confirmed.</p>
+    <table style="width:100%; border-collapse:collapse; margin:12px 0; background:#FBF3E6; border-radius:8px; overflow:hidden;">
+      <tr><td style="padding:8px 12px; color:#6B5B4E;">Booking ID</td><td style="padding:8px 12px; font-weight:bold;">${booking.bookingId}</td></tr>
+    </table>
+    <table style="width:100%; border-collapse:collapse; margin:12px 0;">
+      <thead>
+        <tr style="background:#EFE3D0;">
+          <th style="padding:8px 12px; text-align:left;">Day</th>
+          <th style="padding:8px 12px; text-align:left;">Lunch type</th>
+          <th style="padding:8px 12px; text-align:left;">Plates</th>
+          <th style="padding:8px 12px; text-align:left;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${dayRowsHtml(booking, false)}</tbody>
+    </table>
+    <p style="font-size:16px;"><b>Total: ₹${booking.totalAmount}</b></p>
+    <p><b>Your bhog lunch will be prepared by 1:30 PM on each booked day.</b></p>
+    ${upiLink
+      ? `<p><a href="${upiLink}" style="display:inline-block; background:#A5303A; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none;">Pay ₹${booking.totalAmount} via UPI app</a></p>`
+      : `<p>Please pay via UPI using the link/QR shown on your confirmation page.</p>`
+    }
+    <p style="font-size:13px; color:#6B5B4E;">Please keep your Booking ID as your payment reference. Your special Order ID for each day will be shown and emailed as soon as you submit your UPI reference number (UTR) or a payment screenshot.</p>
+    <p style="font-size:12px; color:#6B5B4E;">For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.</p>
+  </div>`;
+
+  await sendViaBrevo({
+    to: booking.email,
+    toName: booking.name,
+    subject: `Your bhog booking ${booking.bookingId} is confirmed`,
+    text,
+    html
   });
-
 }
 
+// ---------- Order IDs: sent once the customer submits UTR / screenshot ----------
 
-// ============================================================
-// EXPORTS
-// ============================================================
+async function sendOrderIdsEmail({ name, email, bookingId, orders }) {
+  if (!email) return;
+  const rows = orders.map(o => `
+      <tr>
+        <td style="padding:8px 12px;">${o.day}</td>
+        <td style="padding:8px 12px;">${o.lunchType}</td>
+        <td style="padding:8px 12px;">${o.qty}</td>
+        <td style="padding:8px 12px; font-weight:bold;">${o.orderId}</td>
+      </tr>`).join('');
+  const lines = orders.map(o => `  - ${o.day} (${o.lunchType}): ${o.qty} plate(s) — Order ID ${o.orderId}`).join('\n');
 
-module.exports = {
+  const text =
+`Hello ${name}, we have received your payment details.
 
-  sendOrderEmail,
+Booking ID : ${bookingId}
 
-  sendCustomerReceiptEmail
+Your special Order IDs:
+${lines}
 
-};
+Your payment will be verified by the Utsav team. Please collect your coupon from the Utsav help desk. Your bhog lunch will be prepared by 1:30 PM on each booked day.
+
+— Utsav Socio-Cultural Trust`;
+
+  const html = `
+  <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#2A1B14;">
+    <h2 style="color:#7A2029; margin-bottom:4px;">Utsav Socio-Cultural Trust</h2>
+    <p style="color:#6B5B4E; margin-top:0;">Your special Order IDs</p>
+    <p>Hello <b>${name}</b>, we have received your payment details for Booking ID <b>${bookingId}</b>.</p>
+    <table style="width:100%; border-collapse:collapse; margin:12px 0;">
+      <thead><tr style="background:#EFE3D0;">
+        <th style="padding:8px 12px; text-align:left;">Day</th>
+        <th style="padding:8px 12px; text-align:left;">Lunch type</th>
+        <th style="padding:8px 12px; text-align:left;">Plates</th>
+        <th style="padding:8px 12px; text-align:left;">Order ID</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p>Your payment will be verified by the Utsav team.</p>
+    <p><b>Please collect your coupon from the Utsav help desk.</b></p>
+    <p>Your bhog lunch will be prepared by 1:30 PM on each booked day.</p>
+  </div>`;
+
+  await sendViaBrevo({ to: email, toName: name, subject: `Your special Order IDs (${bookingId})`, text, html });
+}
+
+module.exports = { sendOrderEmail, sendCustomerReceiptEmail, sendOrderIdsEmail };
