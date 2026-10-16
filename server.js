@@ -301,7 +301,27 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   const totalPlates = orders.reduce((sum, o) => sum + o.qty, 0);
   const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
   const paidAmount = orders.filter(o => o.status === 'paid').reduce((sum, o) => sum + o.amount, 0);
-  res.json({ totalOrders, totalBookings, totalPlates, totalAmount, paidAmount });
+
+  // Plates needed per day, split Packing vs Dine-In (for kitchen planning).
+  // "paid" counts only bookings currently marked paid.
+  const perDay = VALID_DAYS.map(day => {
+    const row = { day, packing: 0, dineIn: 0, plates: 0, paidPacking: 0, paidDineIn: 0, paidPlates: 0 };
+    for (const o of orders) {
+      if (o.day !== day) continue;
+      const { packingQty, dineInQty } = splitQty(o);
+      row.packing += packingQty;
+      row.dineIn += dineInQty;
+      if (o.status === 'paid') {
+        row.paidPacking += packingQty;
+        row.paidDineIn += dineInQty;
+      }
+    }
+    row.plates = row.packing + row.dineIn;
+    row.paidPlates = row.paidPacking + row.paidDineIn;
+    return row;
+  });
+
+  res.json({ totalOrders, totalBookings, totalPlates, totalAmount, paidAmount, perDay });
 });
 
 app.post('/api/admin/settings', requireAdmin, async (req, res) => {
