@@ -43,11 +43,20 @@ async function sendViaBrevo({ to, toName, subject, text, html }) {
   }
 }
 
+// "1 Packing + 3 Dine-In" (falls back to the old lunchType for older orders).
+function mixLabel(o) {
+  if (o.packingQty === undefined && o.dineInQty === undefined) return o.lunchType;
+  const parts = [];
+  if (o.packingQty > 0) parts.push(`${o.packingQty} Packing`);
+  if (o.dineInQty > 0) parts.push(`${o.dineInQty} Dine-In`);
+  return parts.join(' + ');
+}
+
 // Plain-text day-by-day breakdown. Order IDs are included for the seller only;
 // customers get their Order IDs after payment succeeds.
 function dayLines(booking, withIds = true) {
   return booking.dayOrders
-    .map(o => `  - ${o.day} (${o.lunchType}): ${o.qty} plate(s), ₹${o.amount}` + (withIds ? `  (Order ID: ${o.orderId})` : ''))
+    .map(o => `  - ${o.day}: ${mixLabel(o)} (${o.qty} plate(s)), ₹${o.amount}` + (withIds ? `  (Order ID: ${o.orderId})` : ''))
     .join('\n');
 }
 
@@ -57,7 +66,7 @@ function dayRowsHtml(booking, withIds = true) {
     .map(o => `
       <tr>
         <td style="padding:8px 12px; color:#6B5B4E;">${o.day}</td>
-        <td style="padding:8px 12px;">${o.lunchType}</td>
+        <td style="padding:8px 12px;">${mixLabel(o)}</td>
         <td style="padding:8px 12px;">${o.qty}</td>
         <td style="padding:8px 12px;">₹${o.amount}</td>
         ${withIds ? `<td style="padding:8px 12px; font-size:12px; color:#6B5B4E;">${o.orderId}</td>` : ''}
@@ -162,11 +171,11 @@ async function sendOrderIdsEmail({ name, email, bookingId, orders }) {
   const rows = orders.map(o => `
       <tr>
         <td style="padding:8px 12px;">${o.day}</td>
-        <td style="padding:8px 12px;">${o.lunchType}</td>
+        <td style="padding:8px 12px;">${mixLabel(o)}</td>
         <td style="padding:8px 12px;">${o.qty}</td>
         <td style="padding:8px 12px; font-weight:bold;">${o.orderId}</td>
       </tr>`).join('');
-  const lines = orders.map(o => `  - ${o.day} (${o.lunchType}): ${o.qty} plate(s) — Order ID ${o.orderId}`).join('\n');
+  const lines = orders.map(o => `  - ${o.day}: ${mixLabel(o)} (${o.qty} plate(s)) — Order ID ${o.orderId}`).join('\n');
 
   const text =
 `Hello ${name}, we have received your payment details.
