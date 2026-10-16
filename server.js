@@ -150,7 +150,7 @@ app.post('/api/orders', async (req, res) => {
   };
 
   const upiLink = settings.upiId
-    ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent('Bhog booking ' + bookingId)}`
+    ? `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent('Bhog booking')}`
     : null;
 
   // Best-effort email notifications. Never blocks the order response.
