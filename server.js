@@ -8,7 +8,11 @@ const { connectDB, ordersCollection, settingsCollection } = require('./db');
 const { sendOrderEmail, sendCustomerReceiptEmail, sendOrderIdsEmail } = require('./email');
 const { uploadScreenshot } = require('./screenshot');
 
-const RATE_PER_PLATE = 500;
+// Price per plate depends on lunch type: Packing (parcel) costs more.
+const RATE_BY_LUNCH_TYPE = {
+  'Packing': 600,
+  'Community Lunch (Dine-In)': 500
+};
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'change-me';
 const SETTINGS_ID = 'main'; // we only ever keep one settings document
 
@@ -124,7 +128,7 @@ app.post('/api/orders', async (req, res) => {
     phone: cleanPhone,
     email: cleanEmail,
     qty,
-    amount: qty * RATE_PER_PLATE,
+    amount: qty * RATE_BY_LUNCH_TYPE[lunchType],
     status: 'pending', // pending | paid
     createdAt
   }));
