@@ -21,18 +21,7 @@ async function connectDB() {
   db = client.db('bhogbooking');
 
   // Make sure orderId is always unique, and speeds up lookups.
-  // If an orderId_1 index already exists with slightly different options
-  // (e.g. a partial filter from an earlier version), keep using it: it already
-  // enforces uniqueness. Don't let that stop the server from starting.
-  try {
-    await db.collection('orders').createIndex({ orderId: 1 }, { unique: true });
-  } catch (e) {
-    if (e.code === 85 || e.code === 86 || /existing index/i.test(e.message)) {
-      console.warn('orderId index already exists with different options; keeping the existing one.');
-    } else {
-      throw e;
-    }
-  }
+  await db.collection('orders').createIndex({ orderId: 1 }, { unique: true });
 
   console.log('Connected to MongoDB Atlas.');
   return db;
