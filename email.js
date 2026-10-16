@@ -105,8 +105,6 @@ async function sendCustomerReceiptEmail(booking, upiLink) {
   const text =
 `Thank you, ${booking.name}! Your bhog booking is confirmed.
 
-Booking ID : ${booking.bookingId}
-
 Days booked:
 ${dayLines(booking, false)}
 
@@ -116,8 +114,7 @@ Your bhog lunch will be prepared by 1:30 PM on each booked day.
 
 ${payLine}
 
-Please keep your Booking ID as your payment reference.
-Your special Order ID for each day will be shown and emailed to you as soon as you submit your UPI reference number (UTR) or a payment screenshot.
+Your Booking ID and special Order ID for each day will be shown and emailed to you as soon as you submit your UPI reference number (UTR) or a payment screenshot.
 
 For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.
 
@@ -128,9 +125,6 @@ For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.
     <h2 style="color:#7A2029; margin-bottom:4px;">Utsav Socio-Cultural Trust</h2>
     <p style="color:#6B5B4E; margin-top:0;">Lunch Bhog Booking — Receipt</p>
     <p>Thank you, <b>${booking.name}</b>! Your bhog booking is confirmed.</p>
-    <table style="width:100%; border-collapse:collapse; margin:12px 0; background:#FBF3E6; border-radius:8px; overflow:hidden;">
-      <tr><td style="padding:8px 12px; color:#6B5B4E;">Booking ID</td><td style="padding:8px 12px; font-weight:bold;">${booking.bookingId}</td></tr>
-    </table>
     <table style="width:100%; border-collapse:collapse; margin:12px 0;">
       <thead>
         <tr style="background:#EFE3D0;">
@@ -148,14 +142,14 @@ For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.
       ? `<p><a href="${upiLink}" style="display:inline-block; background:#A5303A; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none;">Pay ₹${booking.totalAmount} via UPI app</a></p>`
       : `<p>Please pay via UPI using the link/QR shown on your confirmation page.</p>`
     }
-    <p style="font-size:13px; color:#6B5B4E;">Please keep your Booking ID as your payment reference. Your special Order ID for each day will be shown and emailed as soon as you submit your UPI reference number (UTR) or a payment screenshot.</p>
+    <p style="font-size:13px; color:#6B5B4E;">Your Booking ID and special Order ID for each day will be shown and emailed as soon as you submit your UPI reference number (UTR) or a payment screenshot.</p>
     <p style="font-size:12px; color:#6B5B4E;">For queries contact Mr. Asesh Kumar Dasgupta (995894088) or Mr. Dipankar Ghosh.</p>
   </div>`;
 
   await sendViaBrevo({
     to: booking.email,
     toName: booking.name,
-    subject: `Your bhog booking ${booking.bookingId} is confirmed`,
+    subject: `Your bhog booking is confirmed`,
     text,
     html
   });
