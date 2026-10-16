@@ -304,7 +304,9 @@
 
 <script>
 (function(){
-  const RATE = 500;
+  // Price per plate depends on lunch type (Packing/parcel costs more).
+  const RATES = { 'Packing': 600, 'Community Lunch (Dine-In)': 500 };
+  const rateFor = (lt) => RATES[lt] || RATES['Community Lunch (Dine-In)']; // before a type is chosen, show the base rate
   const DAYS = ['Saptami', 'Adhik Saptami', 'Ashtami', 'Navami'];
   const DAY_INFO = {
     'Saptami': { date: 'October 17, 2026 (Saturday)', desc: 'Maha Saptami' },
@@ -340,10 +342,10 @@
             <div>
               <div class="day-name">${day}</div>
               <div class="day-date">${DAY_INFO[day].date} — ${DAY_INFO[day].desc}</div>
-              <div class="day-rate">₹${RATE} per plate</div>
+              <div class="day-rate">${state.lunchType ? '₹' + rateFor(state.lunchType) + ' per plate' : '₹500 Dine-In · ₹600 Packing per plate'}</div>
             </div>
           </div>
-          <div class="day-subtotal">${state.active ? '₹' + (state.qty*RATE).toLocaleString('en-IN') : ''}</div>
+          <div class="day-subtotal">${state.active ? '₹' + (state.qty*rateFor(state.lunchType)).toLocaleString('en-IN') : ''}</div>
         </div>
         <div class="day-body">
           <div class="day-stepper">
@@ -351,11 +353,11 @@
             <div class="dqty">${state.qty}</div>
             <button type="button" class="plus" aria-label="Increase">+</button>
           </div>
-          <div class="day-subtotal">Subtotal: <b>₹${(state.qty*RATE).toLocaleString('en-IN')}</b></div>
+          <div class="day-subtotal">Subtotal: <b>₹${(state.qty*rateFor(state.lunchType)).toLocaleString('en-IN')}</b></div>
         </div>
         <div class="day-lunch">
-          <div class="lunch-type-option${state.lunchType==='Packing'?' selected':''}" data-lt="Packing">Packing</div>
-          <div class="lunch-type-option${state.lunchType==='Community Lunch (Dine-In)'?' selected':''}" data-lt="Community Lunch (Dine-In)">Community Lunch (Dine-In)</div>
+          <div class="lunch-type-option${state.lunchType==='Packing'?' selected':''}" data-lt="Packing">Packing (₹600)</div>
+          <div class="lunch-type-option${state.lunchType==='Community Lunch (Dine-In)'?' selected':''}" data-lt="Community Lunch (Dine-In)">Community Lunch (Dine-In) (₹500)</div>
         </div>
         <button type="button" class="menu-toggle">${state.menuOpen ? 'Hide menu ▲' : 'View menu ▾'}</button>
         <div class="day-menu${state.menuOpen ? ' open' : ''}"><ul>${DAY_MENU[day].map(i => `<li>${i}</li>`).join('')}</ul></div>
@@ -394,7 +396,7 @@
 
   function renderTotal(){
     let total = 0;
-    DAYS.forEach(day => { if (dayState[day].active) total += dayState[day].qty * RATE; });
+    DAYS.forEach(day => { if (dayState[day].active) total += dayState[day].qty * rateFor(dayState[day].lunchType); });
     totalDisplay.textContent = '₹' + total.toLocaleString('en-IN');
   }
 
