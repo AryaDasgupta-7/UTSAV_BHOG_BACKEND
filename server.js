@@ -185,7 +185,7 @@ app.post('/api/orders/:bookingId/utr', async (req, res) => {
 
   const result = await ordersCollection().updateMany(
     { bookingId },
-    { $set: { utr, utrSubmittedAt: new Date().toISOString() } }
+    { $set: { utr, utrSubmittedAt: new Date().toISOString(), status: 'paid' } }
   );
 
   if (result.matchedCount === 0) {
@@ -236,7 +236,7 @@ app.post('/api/orders/:bookingId/screenshot', handleScreenshotUpload, async (req
 
   const result = await ordersCollection().updateMany(
     { bookingId },
-    { $set: { screenshotUrl: url, screenshotSubmittedAt: new Date().toISOString() } }
+    { $set: { screenshotUrl: url, screenshotSubmittedAt: new Date().toISOString(), status: 'paid' } }
   );
 
   if (result.matchedCount === 0) {
