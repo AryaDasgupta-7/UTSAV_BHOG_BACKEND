@@ -25,6 +25,30 @@ const DAY_CODES = {
   Navami: 'NAV'
 };
 const VALID_DAYS = Object.keys(DAY_CODES);
+const MAX_QTY_PER_TYPE = 200;
+
+// Label stored on each day-order, e.g. "Packing", "Community Lunch (Dine-In)" or "Packing + Dine-In".
+function lunchTypeLabel(packingQty, dineInQty) {
+  if (packingQty > 0 && dineInQty > 0) return 'Packing + Dine-In';
+  if (packingQty > 0) return 'Packing';
+  return 'Community Lunch (Dine-In)';
+}
+
+// Orders saved before mixed bookings existed only have qty + lunchType.
+// This returns { packingQty, dineInQty } for both old and new records.
+function splitQty(o) {
+  if (Number.isInteger(o.packingQty) || Number.isInteger(o.dineInQty)) {
+    return { packingQty: o.packingQty || 0, dineInQty: o.dineInQty || 0 };
+  }
+  return o.lunchType === 'Packing'
+    ? { packingQty: o.qty || 0, dineInQty: 0 }
+    : { packingQty: 0, dineInQty: o.qty || 0 };
+}
+
+function publicOrder(o) {
+  const { packingQty, dineInQty } = splitQty(o);
+  return { day: o.day, lunchType: o.lunchType, packingQty, dineInQty, qty: o.qty, orderId: o.orderId };
+}
 
 // Reveals the real Order IDs: returns them and emails them, but only once
 // the customer has submitted payment proof (a UTR or a screenshot).
@@ -38,13 +62,11 @@ async function revealOrderIds(bookingId) {
     const f = orders[0];
     sendOrderIdsEmail({
       name: f.name, email: f.email, bookingId,
-      orders: orders.map(o => ({ day: o.day, lunchType: o.lunchType, qty: o.qty, orderId: o.orderId }))
+      orders: orders.map(publicOrder)
     }).catch(err => console.error('Order-IDs email failed:', err.message));
   }
-  return orders.map(o => ({ day: o.day, lunchType: o.lunchType, qty: o.qty, orderId: o.orderId }));
+  return orders.map(publicOrder);
 }
-
-const VALID_LUNCH_TYPES = ['Packing', 'Community Lunch (Dine-In)'];
 
 // ---------- app ----------
 const app = express();
@@ -91,26 +113,38 @@ app.post('/api/orders', async (req, res) => {
     return res.status(400).json({ error: 'Please select at least one day.' });
   }
 
+  const toQty = (v) => (v === undefined || v === null || v === '') ? 0 : Number(v);
   const seenDays = new Set();
   const cleanDays = [];
   for (const entry of days) {
     const day = entry && entry.day;
-    const qtyNum = parseInt(entry && entry.qty, 10);
-    const lunchType = entry && entry.lunchType;
     if (!VALID_DAYS.includes(day)) {
       return res.status(400).json({ error: `"${day}" is not a valid day.` });
     }
     if (seenDays.has(day)) {
       return res.status(400).json({ error: `"${day}" was selected more than once.` });
     }
-    if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 200) {
-      return res.status(400).json({ error: `Enter a valid number of plates for ${day} (1-200).` });
+
+    let packingQty, dineInQty;
+    if (entry.packingQty === undefined && entry.dineInQty === undefined && entry.qty !== undefined) {
+      // Older page still open in someone's browser: { qty, lunchType }
+      const q = toQty(entry.qty);
+      packingQty = entry.lunchType === 'Packing' ? q : 0;
+      dineInQty = entry.lunchType === 'Packing' ? 0 : q;
+    } else {
+      packingQty = toQty(entry.packingQty);
+      dineInQty = toQty(entry.dineInQty);
     }
-    if (!VALID_LUNCH_TYPES.includes(lunchType)) {
-      return res.status(400).json({ error: `Please choose Packing or Dine-In for ${day}.` });
+
+    const validQty = (n) => Number.isInteger(n) && n >= 0 && n <= MAX_QTY_PER_TYPE;
+    if (!validQty(packingQty) || !validQty(dineInQty)) {
+      return res.status(400).json({ error: `Enter a valid number of plates for ${day} (0-${MAX_QTY_PER_TYPE} of each type).` });
+    }
+    if (packingQty + dineInQty < 1) {
+      return res.status(400).json({ error: `Please add at least 1 plate (Packing or Dine-In) for ${day}.` });
     }
     seenDays.add(day);
-    cleanDays.push({ day, qty: qtyNum, lunchType });
+    cleanDays.push({ day, packingQty, dineInQty });
   }
 
   const bookingId = genId('BK');
@@ -119,16 +153,18 @@ app.post('/api/orders', async (req, res) => {
   const cleanPhone = String(phone).trim();
   const cleanEmail = String(email).trim();
 
-  const dayOrders = cleanDays.map(({ day, qty, lunchType }) => ({
+  const dayOrders = cleanDays.map(({ day, packingQty, dineInQty }) => ({
     orderId: genId(DAY_CODES[day]),
     bookingId,
     day,
-    lunchType,
+    lunchType: lunchTypeLabel(packingQty, dineInQty),
+    packingQty,
+    dineInQty,
     name: cleanName,
     phone: cleanPhone,
     email: cleanEmail,
-    qty,
-    amount: qty * RATE_BY_LUNCH_TYPE[lunchType],
+    qty: packingQty + dineInQty,
+    amount: packingQty * RATE_BY_LUNCH_TYPE['Packing'] + dineInQty * RATE_BY_LUNCH_TYPE['Community Lunch (Dine-In)'],
     status: 'pending', // pending | paid
     createdAt
   }));
@@ -165,7 +201,7 @@ app.post('/api/orders', async (req, res) => {
     bookingId,
     totalAmount,
     // Order IDs are deliberately NOT returned here: they are revealed only after a UTR or screenshot is submitted.
-    orders: dayOrders.map(o => ({ day: o.day, lunchType: o.lunchType, qty: o.qty, amount: o.amount })),
+    orders: dayOrders.map(o => ({ day: o.day, lunchType: o.lunchType, packingQty: o.packingQty, dineInQty: o.dineInQty, qty: o.qty, amount: o.amount })),
     upiId: settings.upiId,
     payeeName: settings.payeeName
   });
@@ -338,10 +374,13 @@ app.delete('/api/admin/orders', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/orders/export', requireAdmin, async (req, res) => {
   const orders = await ordersCollection().find({}).sort({ createdAt: -1 }).toArray();
-  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Screenshot URL', 'Created At'];
-  const rows = orders.map(o => [
-    o.orderId, o.bookingId, o.day, o.lunchType, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.utr || '', o.screenshotUrl || '', o.createdAt
-  ]);
+  const header = ['Order ID', 'Booking ID', 'Day', 'Lunch Type', 'Packing Plates', 'Dine-In Plates', 'Name', 'Phone', 'Email', 'Plates', 'Amount', 'Status', 'UTR', 'Screenshot URL', 'Created At'];
+  const rows = orders.map(o => {
+    const { packingQty, dineInQty } = splitQty(o);
+    return [
+    o.orderId, o.bookingId, o.day, o.lunchType, packingQty, dineInQty, o.name, o.phone, o.email, o.qty, o.amount, o.status, o.utr || '', o.screenshotUrl || '', o.createdAt
+  ];
+  });
   const csv = [header, ...rows]
     .map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(','))
     .join('\n');
