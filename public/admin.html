@@ -233,6 +233,19 @@
 
   // Groups the flat list of day-orders into one array per bookingId,
   // preserving the order they arrived in (already newest-first from the API).
+  // "1 Packing + 3 Dine-In" (older orders only have lunchType + qty)
+  function plateMix(o){
+    let p = o.packingQty, d = o.dineInQty;
+    if(!Number.isInteger(p) && !Number.isInteger(d)){
+      return o.lunchType || '';
+    }
+    p = p || 0; d = d || 0;
+    const parts = [];
+    if(p > 0) parts.push(p + ' Packing');
+    if(d > 0) parts.push(d + ' Dine-In');
+    return parts.join(' + ');
+  }
+
   function groupByBooking(orders){
     const map = new Map();
     for(const o of orders){
@@ -274,7 +287,7 @@
       <div class="day-table-scroll">
         <table class="day-table">
           <thead>
-            <tr><th>Day</th><th>Lunch type</th><th class="num">Plates</th><th class="num">Amount</th><th>Order ID</th><th>Status</th><th></th></tr>
+            <tr><th>Day</th><th>Lunch (type &amp; count)</th><th class="num">Plates</th><th class="num">Amount</th><th>Order ID</th><th>Status</th><th></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -318,7 +331,7 @@
       const pillClass = o.status === 'paid' ? 'status-paid' : 'status-pending';
       tr.innerHTML = `
         <td>${escapeHtml(o.day || '')}</td>
-        <td>${escapeHtml(o.lunchType || '')}</td>
+        <td>${escapeHtml(plateMix(o))}</td>
         <td class="num">${o.qty}</td>
         <td class="num">₹${o.amount.toLocaleString('en-IN')}</td>
         <td>${escapeHtml(o.orderId)}</td>
