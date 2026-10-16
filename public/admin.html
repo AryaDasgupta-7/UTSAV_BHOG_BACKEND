@@ -47,6 +47,13 @@
   .stat{ background:var(--ivory); border:1px solid var(--line); border-radius:10px; padding:14px; text-align:center; }
   .stat b{ display:block; font-family:'Fraunces', serif; font-size:22px; color:var(--teal); }
   .stat span{ font-size:11.5px; color:var(--ink-soft); }
+  .perday-wrap{ overflow-x:auto; margin-top:14px; }
+  .perday{ width:100%; min-width:430px; border-collapse:collapse; font-size:13px; }
+  .perday th, .perday td{ padding:9px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+  .perday th:first-child, .perday td:first-child{ text-align:left; }
+  .perday th{ background:#FBF6EC; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.3px; }
+  .perday td.paidcol{ color:var(--teal); font-weight:600; }
+  .perday tfoot td{ font-weight:700; border-bottom:none; background:#FBF6EC; }
   .status-pill{ padding:3px 9px; border-radius:20px; font-size:11.5px; font-weight:600; display:inline-block; }
   .status-pending{ background:#FBEEE6; color:#A5622F; }
   .status-paid{ background:#E6F1EC; color:var(--teal); }
@@ -134,6 +141,15 @@
         <div class="stat"><b id="statAmount">₹0</b><span>Amount expected</span></div>
         <div class="stat"><b id="statPaid">₹0</b><span>Amount confirmed paid</span></div>
       </div>
+      <h2 style="font-family:'Fraunces',serif; font-size:16px; margin:18px 0 0; color:var(--red-dark);">Plates per day</h2>
+      <div class="perday-wrap">
+        <table class="perday">
+          <thead><tr><th>Day</th><th>Packing</th><th>Dine-In</th><th>Total</th><th>Paid total</th></tr></thead>
+          <tbody id="perDayBody"></tbody>
+          <tfoot id="perDayFoot"></tfoot>
+        </table>
+      </div>
+      <div style="font-size:11.5px; color:var(--ink-soft); margin-top:8px;">"Paid total" counts only bookings currently marked paid. The other columns include pending bookings too.</div>
     </div>
 
     <div class="card">
@@ -215,6 +231,28 @@
     }catch(e){ msg.textContent = 'Could not reach the server.'; }
   });
 
+  function renderPerDay(rows){
+    const body = document.getElementById('perDayBody');
+    const foot = document.getElementById('perDayFoot');
+    body.innerHTML = ''; foot.innerHTML = '';
+    const tot = { packing:0, dineIn:0, plates:0, paidPlates:0 };
+    const addRow = (parent, cells, paidIdx) => {
+      const tr = document.createElement('tr');
+      cells.forEach((v, i) => {
+        const td = document.createElement('td');
+        td.textContent = v;
+        if(i === paidIdx) td.className = 'paidcol';
+        tr.appendChild(td);
+      });
+      parent.appendChild(tr);
+    };
+    rows.forEach(r => {
+      addRow(body, [r.day, r.packing, r.dineIn, r.plates, r.paidPlates], 4);
+      tot.packing += r.packing; tot.dineIn += r.dineIn; tot.plates += r.plates; tot.paidPlates += r.paidPlates;
+    });
+    addRow(foot, ['All days', tot.packing, tot.dineIn, tot.plates, tot.paidPlates], -1);
+  }
+
   async function loadStats(){
     try{
       const res = await fetch('/api/admin/stats', { headers: authHeaders() });
@@ -224,6 +262,7 @@
       document.getElementById('statPlates').textContent = s.totalPlates;
       document.getElementById('statAmount').textContent = '₹' + s.totalAmount.toLocaleString('en-IN');
       document.getElementById('statPaid').textContent = '₹' + s.paidAmount.toLocaleString('en-IN');
+      renderPerDay(s.perDay || []);
     }catch(e){}
   }
 
