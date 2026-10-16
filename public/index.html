@@ -244,8 +244,6 @@
           <h1 style="font-size:22px;">Order has been placed</h1>
           <p>Your bhog lunch will be prepared by 1:30 PM.</p>
         </header>
-        <div class="booking-id" id="bookingIdDisplay">UTSAV26-BK-0000</div>
-
         <div class="day-breakdown" id="dayBreakdown"></div>
 
         <div class="summary-box">
@@ -261,7 +259,7 @@
         <a class="cta" id="upiPayBtn" href="#">Pay ₹<span id="payAmtLabel"></span> via UPI app</a>
 
         <div class="note">
-          Tap "Pay via UPI app" on your phone to open Google Pay, PhonePe, Paytm or any UPI app with the amount pre-filled — or scan the QR code above from another device. Please keep your Booking ID <b id="noteBookingId"></b> as your payment reference.
+          Tap "Pay via UPI app" on your phone to open Google Pay, PhonePe, Paytm or any UPI app with the amount pre-filled — or scan the QR code above from another device.
         </div>
 
         <div class="utr-box" id="utrBox">
@@ -283,7 +281,9 @@
         </div>
 
         <div id="orderIdsBox" class="hidden" style="background:#E6F1EC; border:1px solid #CFE1D8; border-radius:10px; padding:14px; margin-bottom:18px;">
-          <div style="color:var(--teal); font-weight:600; margin-bottom:8px;">✓ Payment details received. Your special Order IDs:</div>
+          <div style="color:var(--teal); font-weight:600; margin-bottom:8px;">✓ Payment details received. Your Booking ID:</div>
+          <div class="booking-id" id="bookingIdDisplay" style="margin-bottom:14px;"></div>
+          <div style="color:var(--teal); font-weight:600; margin-bottom:8px;">Your special Order IDs:</div>
           <div id="orderIdsList" style="font-size:13.5px;"></div>
           <div style="font-size:12.5px; color:var(--ink-soft); margin-top:8px;">Your payment will be verified by the Utsav team. Please collect your coupon from the Utsav help desk. A copy has been emailed to you.</div>
         </div>
@@ -448,10 +448,8 @@
         return;
       }
 
-      document.getElementById('bookingIdDisplay').textContent = result.bookingId;
       currentBookingId = result.bookingId;
       currentTotalAmount = result.totalAmount;
-      document.getElementById('noteBookingId').textContent = result.bookingId;
       document.getElementById('sName').textContent = data.name;
       document.getElementById('sPhone').textContent = data.phone;
       document.getElementById('sEmail').textContent = data.email;
@@ -473,7 +471,7 @@
       const upiBtn = document.getElementById('upiPayBtn');
 
       if(result.upiId){
-        const upiUri = `upi://pay?pa=${encodeURIComponent(result.upiId)}&pn=${encodeURIComponent(result.payeeName)}&am=${result.totalAmount}&cu=INR&tn=${encodeURIComponent('Bhog booking '+result.bookingId)}`;
+        const upiUri = `upi://pay?pa=${encodeURIComponent(result.upiId)}&pn=${encodeURIComponent(result.payeeName)}&am=${result.totalAmount}&cu=INR&tn=${encodeURIComponent('Bhog booking')}`;
         upiBtn.href = upiUri;
         upiBtn.classList.remove('hidden');
         try{ new QRCode(qrBox, { text: upiUri, width:160, height:160, colorDark:'#2A1B14', colorLight:'#FFFDF9' }); }catch(e){}
@@ -494,6 +492,7 @@
 
   function showOrderIds(orders){
     if(!orders || !orders.length) return;
+    document.getElementById('bookingIdDisplay').textContent = currentBookingId;
     document.getElementById('orderIdsList').innerHTML =
       '<table style="width:100%;border-collapse:collapse;"><tr style="background:#EFE3D0;"><th style="padding:6px 8px;text-align:left;">Day</th><th style="padding:6px 8px;text-align:left;">Type</th><th style="padding:6px 8px;text-align:left;">Plates</th><th style="padding:6px 8px;text-align:left;">Order ID</th></tr>' +
       orders.map(o => `<tr><td style="padding:6px 8px;">${o.day}</td><td style="padding:6px 8px;">${o.lunchType}</td><td style="padding:6px 8px;">${o.qty}</td><td style="padding:6px 8px;font-weight:600;">${o.orderId}</td></tr>`).join('') +
@@ -592,6 +591,7 @@
     currentBookingId = null;
     currentTotalAmount = 0;
     document.getElementById('orderIdsBox').classList.add('hidden');
+    document.getElementById('bookingIdDisplay').textContent = '';
     document.getElementById('qrBox').classList.remove('hidden');
     document.getElementById('upiPayBtn').classList.remove('hidden');
     const utrInput = document.getElementById('utrInput');
