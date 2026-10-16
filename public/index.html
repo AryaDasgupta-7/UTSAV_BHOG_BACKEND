@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Utsav Socio-Cultural Trust — Lunch Bhog Booking</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
   body{
     background:radial-gradient(ellipse at top, rgba(206,155,63,0.18), transparent 55%), var(--ivory);
     color:var(--ink); font-family:'Work Sans', sans-serif; min-height:100vh;
-    padding:56px 16px 64px; display:flex; flex-direction:column; align-items:center;
+    padding:56px 16px 130px; display:flex; flex-direction:column; align-items:center;
   }
   .wrap{ width:100%; max-width:560px; position:relative; }
   .site-logo{
@@ -83,40 +83,55 @@
   .day-date{ font-size:11.5px; color:var(--gold); font-weight:600; margin:1px 0 2px; }
   .day-rate{ font-size:12.5px; color:var(--ink-soft); }
   .menu-toggle{
-    display:block; margin:0 16px 12px; padding:6px 12px; background:transparent;
+    display:block; margin:4px 16px 14px; padding:10px 14px; background:transparent;
     border:1px solid var(--gold); color:var(--gold); border-radius:8px;
-    font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit;
+    font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; touch-action:manipulation;
   }
   .day-menu{ display:none; margin:0 16px 14px; padding:10px 14px; background:#FBF3E6; border-radius:8px; }
   .day-menu.open{ display:block; }
   .day-menu ul{ margin:0; padding-left:18px; font-size:13px; color:var(--ink-soft); line-height:1.7; }
-  .day-body{
-    display:none; padding:0 16px 14px; align-items:center; justify-content:space-between;
+  .day-subtotal{ font-size:14px; color:var(--ink); font-weight:600; white-space:nowrap; margin-left:8px; }
+  .day-head{ -webkit-tap-highlight-color:transparent; min-height:60px; }
+  .day-body{ display:none; padding:0 16px 8px; }
+  .day-card.active .day-body{ display:block; }
+  .qty-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 0; border-top:1px dashed var(--line);
   }
-  .day-card.active .day-body{ display:flex; }
-  .day-stepper{ display:flex; align-items:center; gap:12px; }
-  .day-stepper button{
-    width:30px; height:30px; border-radius:50%; border:1px solid var(--red); background:var(--white);
-    color:var(--red); font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  .qty-info{ min-width:0; }
+  .qty-label{ font-size:14px; font-weight:600; color:var(--ink); line-height:1.3; }
+  .qty-rate{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .stepper{ display:flex; align-items:center; gap:8px; flex:none; }
+  .stepper .step{
+    width:44px; height:44px; border-radius:50%; border:1px solid var(--red); background:var(--white);
+    color:var(--red); font-size:22px; line-height:1; cursor:pointer; padding:0; font-family:inherit;
+    display:flex; align-items:center; justify-content:center;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;
   }
-  .day-stepper button:active{ background:var(--red); color:var(--white); }
-  .day-stepper .dqty{ min-width:22px; text-align:center; font-size:15px; font-weight:600; }
-  .day-subtotal{ font-size:13.5px; color:var(--ink-soft); }
-  .day-subtotal b{ color:var(--ink); }
+  .stepper .step:active{ background:var(--red); color:var(--white); }
+  .stepper .step:disabled{ opacity:0.35; cursor:not-allowed; }
+  .stepper input.qty-input{
+    width:52px; height:44px; padding:0; text-align:center; font-size:17px; font-weight:600; border-radius:10px;
+  }
+  .day-total{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:10px 0 6px; border-top:1px solid var(--line); font-size:13.5px; color:var(--ink-soft);
+  }
+  .day-total b{ color:var(--ink); font-size:15px; }
+  .day-total .need{ color:var(--error); font-weight:600; }
 
-  .lunch-type-row{ display:flex; gap:10px; margin-bottom:18px; }
-  .lunch-type-option{
-    flex:1; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
-    cursor:pointer; text-align:center; background:var(--ivory); font-size:13.5px; font-weight:600;
-    color:var(--ink-soft);
+  .checkout-bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--white);
+    border-top:1px solid var(--line); box-shadow:0 -4px 14px rgba(42,27,20,0.10);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   }
-  .lunch-type-option.selected{
-    border-color:var(--red); background:#FDF6EE; color:var(--red-dark);
-  }
-
-  .day-lunch{ display:none; gap:8px; padding:0 16px 12px; }
-  .day-card.active .day-lunch{ display:flex; }
-  .day-lunch .lunch-type-option{ padding:8px 6px; font-size:12.5px; }
+  .checkout-inner{ max-width:560px; margin:0 auto; display:flex; align-items:center; gap:14px; }
+  .checkout-total{ flex:none; }
+  .checkout-total .tlabel{ font-size:11.5px; color:var(--ink-soft); }
+  .checkout-total .tval{ font-family:'Fraunces', serif; font-weight:600; font-size:22px; color:var(--red-dark); line-height:1.1; }
+  .checkout-inner .cta{ margin-top:0; flex:1; padding:14px 10px; }
+  #err-submit{ max-width:560px; margin:0 auto 6px; text-align:center; min-height:0; }
+  #err-submit:empty{ display:none; }
 
   .total-row{
     display:flex; justify-content:space-between; align-items:baseline; padding:18px 2px 4px;
@@ -172,18 +187,23 @@
   .hidden{ display:none !important; }
 
   @media (max-width: 480px){
-    body{ padding:44px 10px 48px; }
+    body{ padding:44px 10px 120px; }
     .site-logo{ width:64px; height:64px; top:-30px; left:-6px; }
-    .content{ padding:8px 18px 24px; }
+    .content{ padding:8px 14px 24px; }
     header{ padding:14px 0 18px; }
     header h1{ font-size:22px; }
-    .lunch-type-row{ gap:8px; }
-    .lunch-type-option{ padding:10px 8px; font-size:12.5px; }
-    .day-stepper button{ width:36px; height:36px; font-size:18px; }
-    .day-checkbox{ width:22px; height:22px; }
+    .day-checkbox{ width:24px; height:24px; }
     .cta{ padding:15px; font-size:15px; }
     .day-head{ padding:14px 12px; }
-    .day-body{ padding:0 12px 14px; }
+    .day-body{ padding:0 12px 8px; }
+    .menu-toggle{ margin-left:12px; margin-right:12px; }
+    .day-menu{ margin-left:12px; margin-right:12px; }
+    .qty-label{ font-size:13.5px; }
+  }
+  @media (max-width: 360px){
+    .stepper input.qty-input{ width:44px; }
+    .stepper .step{ width:40px; height:40px; }
+    .stepper{ gap:6px; }
   }
 </style>
 </head>
@@ -225,18 +245,11 @@
         </div>
 
         <div class="field">
-          <label class="section-label">Select the day(s) you want bhog for</label>
+          <label class="section-label">Select the day(s) and how many plates of each type</label>
           <div id="daysContainer"></div>
           <div class="err" id="err-days"></div>
         </div>
 
-        <div class="total-row">
-          <div class="tlabel">Total amount</div>
-          <div class="tval" id="totalDisplay">₹0</div>
-        </div>
-
-        <button class="cta" id="submitBtn">Reserve plates &amp; pay</button>
-        <div class="err" id="err-submit" style="text-align:center;"></div>
       </div>
 
       <div id="confirmView" class="hidden">
@@ -302,11 +315,20 @@
   </div>
 </div>
 
+<div class="checkout-bar" id="checkoutBar">
+  <div class="err" id="err-submit"></div>
+  <div class="checkout-inner">
+    <div class="checkout-total">
+      <div class="tlabel">Total</div>
+      <div class="tval" id="totalDisplay">₹0</div>
+    </div>
+    <button class="cta" id="submitBtn">Reserve plates &amp; pay</button>
+  </div>
+</div>
+
 <script>
 (function(){
-  // Price per plate depends on lunch type (Packing/parcel costs more).
-  const RATES = { 'Packing': 600, 'Community Lunch (Dine-In)': 500 };
-  const rateFor = (lt) => RATES[lt] || RATES['Community Lunch (Dine-In)']; // before a type is chosen, show the base rate
+  const RATE_PACKING = 600, RATE_DINEIN = 500, MAX_QTY = 200;
   const DAYS = ['Saptami', 'Adhik Saptami', 'Ashtami', 'Navami'];
   const DAY_INFO = {
     'Saptami': { date: 'October 17, 2026 (Saturday)', desc: 'Maha Saptami' },
@@ -320,86 +342,144 @@
     'Ashtami': ['Puri','Dum Baby Potato with Green Peas','Pujo Style Khichdi (in Moong Dal with Coconut)','Brinjal Fritters','Bengali Mix Veg','Masala Papad','Tomato Chutney','Special Kheer','Rasgulla'],
     'Navami': ['Saffron Pulao','Vegetable Cutlet','Roasted Cauliflower','Cottage Cheese Kofta Curry','Masala Papad','Pineapple Chutney','Gulab Jamun']
   };
-  const dayState = {}; // { Saptami: { active, qty, menuOpen }, ... }
-  DAYS.forEach(d => dayState[d] = { active: false, qty: 1, menuOpen: false, lunchType: null });
+
+  // Each day keeps its own count of Packing (parcel) plates and Dine-In plates.
+  const freshDay = () => ({ active: false, packing: 0, dinein: 0, menuOpen: false });
+  const dayState = {};
+  DAYS.forEach(d => dayState[d] = freshDay());
   let currentBookingId = null;
   let currentTotalAmount = 0;
 
+  const inr = n => '₹' + n.toLocaleString('en-IN');
+  const dayPlates = s => s.packing + s.dinein;
+  const dayAmount = s => s.packing * RATE_PACKING + s.dinein * RATE_DINEIN;
+  // e.g. "1 Packing + 3 Dine-In"
+  function mixText(packing, dinein){
+    const parts = [];
+    if(packing > 0) parts.push(packing + ' Packing');
+    if(dinein > 0) parts.push(dinein + ' Dine-In');
+    return parts.join(' + ');
+  }
+
   const daysContainer = document.getElementById('daysContainer');
   const totalDisplay = document.getElementById('totalDisplay');
+  const checkoutBar = document.getElementById('checkoutBar');
+  const cards = {};
 
-  function renderDays(){
+  function qtyRowHtml(kind, label, rate){
+    return `
+      <div class="qty-row" data-kind="${kind}">
+        <div class="qty-info">
+          <div class="qty-label">${label}</div>
+          <div class="qty-rate">₹${rate} per plate</div>
+        </div>
+        <div class="stepper">
+          <button type="button" class="step minus" aria-label="Fewer ${label} plates">−</button>
+          <input type="text" class="qty-input" inputmode="numeric" pattern="[0-9]*" maxlength="3" value="0" aria-label="Number of ${label} plates">
+          <button type="button" class="step plus" aria-label="More ${label} plates">+</button>
+        </div>
+      </div>`;
+  }
+
+  // Cards are built once; refresh() updates them in place so a phone's keyboard
+  // never closes while someone is typing a quantity.
+  function buildDays(){
     daysContainer.innerHTML = '';
     DAYS.forEach(day => {
-      const state = dayState[day];
       const card = document.createElement('div');
-      card.className = 'day-card' + (state.active ? ' active' : '');
-
+      card.className = 'day-card';
       card.innerHTML = `
-        <div class="day-head">
+        <div class="day-head" role="button" tabindex="0" aria-expanded="false">
           <div class="day-left">
             <div class="day-checkbox"><svg viewBox="0 0 16 16"><polyline points="2,8 6,12 14,3"></polyline></svg></div>
             <div>
               <div class="day-name">${day}</div>
               <div class="day-date">${DAY_INFO[day].date} — ${DAY_INFO[day].desc}</div>
-              <div class="day-rate">${state.lunchType ? '₹' + rateFor(state.lunchType) + ' per plate' : '₹500 Dine-In · ₹600 Packing per plate'}</div>
+              <div class="day-rate">Dine-In ₹${RATE_DINEIN} · Packing ₹${RATE_PACKING} per plate</div>
             </div>
           </div>
-          <div class="day-subtotal">${state.active ? '₹' + (state.qty*rateFor(state.lunchType)).toLocaleString('en-IN') : ''}</div>
+          <div class="day-subtotal" data-role="headTotal"></div>
         </div>
         <div class="day-body">
-          <div class="day-stepper">
-            <button type="button" class="minus" aria-label="Decrease">−</button>
-            <div class="dqty">${state.qty}</div>
-            <button type="button" class="plus" aria-label="Increase">+</button>
-          </div>
-          <div class="day-subtotal">Subtotal: <b>₹${(state.qty*rateFor(state.lunchType)).toLocaleString('en-IN')}</b></div>
+          ${qtyRowHtml('packing', 'Packing (Parcel)', RATE_PACKING)}
+          ${qtyRowHtml('dinein', 'Community Lunch (Dine-In)', RATE_DINEIN)}
+          <div class="day-total"></div>
         </div>
-        <div class="day-lunch">
-          <div class="lunch-type-option${state.lunchType==='Packing'?' selected':''}" data-lt="Packing">Packing (₹600)</div>
-          <div class="lunch-type-option${state.lunchType==='Community Lunch (Dine-In)'?' selected':''}" data-lt="Community Lunch (Dine-In)">Community Lunch (Dine-In) (₹500)</div>
-        </div>
-        <button type="button" class="menu-toggle">${state.menuOpen ? 'Hide menu ▲' : 'View menu ▾'}</button>
-        <div class="day-menu${state.menuOpen ? ' open' : ''}"><ul>${DAY_MENU[day].map(i => `<li>${i}</li>`).join('')}</ul></div>
+        <button type="button" class="menu-toggle">View menu ▾</button>
+        <div class="day-menu"><ul>${DAY_MENU[day].map(i => `<li>${i}</li>`).join('')}</ul></div>
       `;
-      card.querySelectorAll('.lunch-type-option').forEach(opt => opt.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.lunchType = opt.dataset.lt;
-        document.getElementById('err-days').textContent = '';
-        renderDays();
-      }));
-      card.querySelector('.menu-toggle').addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.menuOpen = !state.menuOpen;
-        renderDays();
+
+      const errDays = document.getElementById('err-days');
+      const toggleDay = () => {
+        dayState[day].active = !dayState[day].active;
+        errDays.textContent = '';
+        refresh(day); renderTotal();
+      };
+      const head = card.querySelector('.day-head');
+      head.addEventListener('click', toggleDay);
+      head.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleDay(); } });
+
+      card.querySelector('.menu-toggle').addEventListener('click', () => {
+        dayState[day].menuOpen = !dayState[day].menuOpen;
+        refresh(day);
       });
 
-      card.querySelector('.day-head').addEventListener('click', () => {
-        state.active = !state.active;
-        renderDays();
-        renderTotal();
-      });
-      const minusBtn = card.querySelector('.minus');
-      const plusBtn = card.querySelector('.plus');
-      if (minusBtn) minusBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (state.qty > 1) { state.qty--; renderDays(); renderTotal(); }
-      });
-      if (plusBtn) plusBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (state.qty < 200) { state.qty++; renderDays(); renderTotal(); }
+      ['packing', 'dinein'].forEach(kind => {
+        const row = card.querySelector(`.qty-row[data-kind="${kind}"]`);
+        const input = row.querySelector('input');
+        const setQty = (n) => {
+          dayState[day][kind] = Math.max(0, Math.min(MAX_QTY, n));
+          errDays.textContent = '';
+          refresh(day); renderTotal();
+        };
+        row.querySelector('.minus').addEventListener('click', () => setQty(dayState[day][kind] - 1));
+        row.querySelector('.plus').addEventListener('click', () => setQty(dayState[day][kind] + 1));
+        input.addEventListener('focus', () => input.select());
+        input.addEventListener('input', () => {
+          const digits = input.value.replace(/\D/g, '').slice(0, 3);
+          const n = Math.min(MAX_QTY, parseInt(digits || '0', 10));
+          if(digits !== '' && String(n) !== digits) input.value = String(n); // e.g. "05" -> "5", "250" -> "200"
+          dayState[day][kind] = n;
+          errDays.textContent = '';
+          refresh(day, input); renderTotal();
+        });
+        input.addEventListener('blur', () => { input.value = dayState[day][kind]; });
       });
 
+      cards[day] = card;
       daysContainer.appendChild(card);
     });
   }
 
-  function renderTotal(){
-    let total = 0;
-    DAYS.forEach(day => { if (dayState[day].active) total += dayState[day].qty * rateFor(dayState[day].lunchType); });
-    totalDisplay.textContent = '₹' + total.toLocaleString('en-IN');
+  function refresh(day, skipInput){
+    const s = dayState[day], card = cards[day];
+    card.classList.toggle('active', s.active);
+    card.querySelector('.day-head').setAttribute('aria-expanded', String(s.active));
+    const plates = dayPlates(s);
+    card.querySelector('[data-role="headTotal"]').textContent = (s.active && plates > 0) ? inr(dayAmount(s)) : '';
+    ['packing', 'dinein'].forEach(kind => {
+      const row = card.querySelector(`.qty-row[data-kind="${kind}"]`);
+      const input = row.querySelector('input');
+      if(input !== skipInput) input.value = s[kind];
+      row.querySelector('.minus').disabled = s[kind] <= 0;
+      row.querySelector('.plus').disabled = s[kind] >= MAX_QTY;
+    });
+    card.querySelector('.day-total').innerHTML = plates > 0
+      ? `<span>${plates} plate${plates > 1 ? 's' : ''} (${mixText(s.packing, s.dinein)})</span><b>${inr(dayAmount(s))}</b>`
+      : `<span class="need">Add at least 1 plate</span><b></b>`;
+    card.querySelector('.day-menu').classList.toggle('open', s.menuOpen);
+    card.querySelector('.menu-toggle').textContent = s.menuOpen ? 'Hide menu ▲' : 'View menu ▾';
   }
 
+  function renderDays(){ DAYS.forEach(d => refresh(d)); }
+
+  function renderTotal(){
+    let total = 0;
+    DAYS.forEach(day => { if (dayState[day].active) total += dayAmount(dayState[day]); });
+    totalDisplay.textContent = inr(total);
+  }
+
+  buildDays();
   renderDays();
   renderTotal();
 
@@ -418,9 +498,23 @@
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ document.getElementById('err-email').textContent = 'Enter a valid email address.'; ok=false; }
 
     const selectedDays = DAYS.filter(d => dayState[d].active);
-    if(selectedDays.length === 0){ document.getElementById('err-days').textContent = 'Please select at least one day.'; ok=false; }
-    const missing = selectedDays.find(d => !dayState[d].lunchType);
-    if(missing){ document.getElementById('err-days').textContent = 'Please choose Packing or Dine-In for ' + missing + '.'; ok=false; }
+    let scrollTarget = null;
+    if(selectedDays.length === 0){
+      document.getElementById('err-days').textContent = 'Please select at least one day.'; ok=false;
+    } else {
+      const empty = selectedDays.find(d => dayPlates(dayState[d]) === 0);
+      if(empty){
+        document.getElementById('err-days').textContent = 'Please add at least 1 plate (Packing or Dine-In) for ' + empty + '.';
+        scrollTarget = cards[empty];
+        ok=false;
+      }
+    }
+
+    if(!ok){
+      // On a phone the error can be off-screen, so bring the first problem into view.
+      const firstErr = scrollTarget || Array.from(document.querySelectorAll('#formView .err')).find(e => e.textContent);
+      if(firstErr) firstErr.scrollIntoView({ behavior:'smooth', block:'center' });
+    }
 
     return ok ? { name, phone, email, selectedDays } : null;
   }
@@ -434,7 +528,7 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Placing order…';
 
-    const days = data.selectedDays.map(day => ({ day, qty: dayState[day].qty, lunchType: dayState[day].lunchType }));
+    const days = data.selectedDays.map(day => ({ day, packingQty: dayState[day].packing, dineInQty: dayState[day].dinein }));
 
     try{
       const res = await fetch('/api/orders', {
@@ -463,8 +557,8 @@
       const breakdown = document.getElementById('dayBreakdown');
       breakdown.innerHTML = result.orders.map(o => `
         <div class="drow">
-          <div class="dleft"><b>${o.day}</b><span>${DAY_INFO[o.day].date} · ${o.lunchType}</span></div>
-          <div class="dright">${o.qty} plate(s)<br>₹${o.amount.toLocaleString('en-IN')}</div>
+          <div class="dleft"><b>${o.day}</b><span>${DAY_INFO[o.day].date}<br>${mixText(o.packingQty, o.dineInQty)}</span></div>
+          <div class="dright">${o.qty} plate(s)<br>${inr(o.amount)}</div>
         </div>
       `).join('');
 
@@ -483,6 +577,7 @@
       }
 
       document.getElementById('formView').classList.add('hidden');
+      checkoutBar.classList.add('hidden');
       document.getElementById('confirmView').classList.remove('hidden');
       window.scrollTo({top:0, behavior:'smooth'});
     }catch(e){
@@ -497,7 +592,7 @@
     document.getElementById('bookingIdDisplay').textContent = currentBookingId;
     document.getElementById('orderIdsList').innerHTML =
       '<table style="width:100%;border-collapse:collapse;"><tr style="background:#EFE3D0;"><th style="padding:6px 8px;text-align:left;">Day</th><th style="padding:6px 8px;text-align:left;">Type</th><th style="padding:6px 8px;text-align:left;">Plates</th><th style="padding:6px 8px;text-align:left;">Order ID</th></tr>' +
-      orders.map(o => `<tr><td style="padding:6px 8px;">${o.day}</td><td style="padding:6px 8px;">${o.lunchType}</td><td style="padding:6px 8px;">${o.qty}</td><td style="padding:6px 8px;font-weight:600;">${o.orderId}</td></tr>`).join('') +
+      orders.map(o => `<tr><td style="padding:6px 8px;">${o.day}</td><td style="padding:6px 8px;">${mixText(o.packingQty, o.dineInQty) || o.lunchType}</td><td style="padding:6px 8px;">${o.qty}</td><td style="padding:6px 8px;font-weight:600;">${o.orderId}</td></tr>`).join('') +
       '</table>';
     document.getElementById('orderIdsBox').classList.remove('hidden');
   }
@@ -589,7 +684,7 @@
     document.getElementById('name').value = '';
     document.getElementById('phone').value = '';
     document.getElementById('email').value = '';
-    DAYS.forEach(d => { dayState[d] = { active: false, qty: 1, menuOpen: false, lunchType: null }; });
+    DAYS.forEach(d => { dayState[d] = freshDay(); });
     currentBookingId = null;
     currentTotalAmount = 0;
     document.getElementById('orderIdsBox').classList.add('hidden');
@@ -619,6 +714,7 @@
     submitBtn.textContent = 'Reserve plates & pay';
     document.getElementById('confirmView').classList.add('hidden');
     document.getElementById('formView').classList.remove('hidden');
+    checkoutBar.classList.remove('hidden');
     window.scrollTo({top:0, behavior:'smooth'});
   });
 })();
